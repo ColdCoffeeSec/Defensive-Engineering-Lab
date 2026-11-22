@@ -37,7 +37,7 @@ Tags follow `CTI_CONTEXT.md`: **[V]** verified by a run shown below, **[A]** ana
 - A pass shows the rule logic matches the labelled cases. **It is not a detection rate or a false-positive rate.**
 - Rule 002 needs a 4663 SACL that the reference environment does not enable. Its cases prove logic only. **In the reference environment the rule cannot fire.**
 - The config extractor parses **our own** blob schema (`ANALYSIS.md` section 3.3). The round trip shows the parser matches that schema. It says nothing about real Lumma configs. Only the sizes of magic (16), key (32) and nonce (8) are published **[V: eSentire]**.
-- The ChaCha20 call is checked against a published zero-key test vector (`test_cipher_known_answer_zero_key`), and that test passed in the run below **[V]**.
+- The ChaCha20 call is checked against a zero-key, zero-nonce keystream vector (`test_cipher_known_answer_zero_key`). That test passed in the run below **[V]**. The vector's attribution to a published test-vector set is **not** verified from a fetched source **[U]**; the test only shows the cryptography library produces that value.
 
 ## 3. Coverage matrix: rule 001 (ClickFix PowerShell / mshta)
 
@@ -45,31 +45,31 @@ Case counts by category: benign-near-miss: 10, clickfix-cradle: 2, clickfix-enco
 
 | ID | Category | Technique | Expected | Description |
 |---|---|---|---|---|
-| R1-P01 | clickfix-encoded | T1204.002 / T1059.001 | alert | Run dialog paste, -enc with hidden window |
-| R1-P02 | clickfix-encoded | T1204.002 / T1059.001 | alert | Abbreviation -e |
-| R1-P03 | clickfix-encoded | T1204.002 / T1059.001 | alert | Full -EncodedCommand |
-| R1-P04 | clickfix-encoded | T1204.002 / T1059.001 | alert | pwsh with -ec |
-| R1-P05 | clickfix-encoded | T1204.002 / T1059.001 | alert | Abbreviation -enco |
-| R1-P06 | clickfix-encoded | T1204.002 / T1059.001 | alert | Upper-case paths and flags (case-insensitive match) |
-| R1-P07 | clickfix-cradle | T1204.002 / T1059.001 | alert | iex with irm against a URL |
-| R1-P08 | clickfix-cradle | T1204.002 / T1059.001 | alert | WebClient DownloadString piped to iex |
-| R1-P09 | clickfix-mshta | T1204.002 / T1218.005 | alert | mshta against an https URL |
-| R1-P10 | clickfix-mshta | T1204.002 / T1218.005 | alert | mshta against an http URL on a reserved address |
-| R1-N01 | benign-near-miss | T1204.002 / T1059.001 | no alert | Scheduled task host runs an approved encoded script (same command as P01) |
-| R1-N02 | benign-near-miss | T1204.002 / T1059.001 | no alert | Software deployment agent runs an encoded script |
-| R1-N03 | benign-near-miss | T1204.002 / T1059.001 | no alert | Admin runs a cradle from a terminal, not from explorer.exe |
-| R1-N04 | benign-near-miss | T1204.002 / T1059.001 | no alert | Legacy launcher starts mshta on an intranet URL |
-| R1-N05 | benign-near-miss | T1204.002 / T1059.001 | no alert | explorer starts PowerShell on a script file |
-| R1-N06 | benign-near-miss | T1204.002 / T1059.001 | no alert | explorer starts PowerShell with a plain command |
-| R1-N07 | benign-near-miss | T1204.002 / T1059.001 | no alert | URL plus the word iexplore must not count as the iex cradle |
+| R1-P01 | clickfix-encoded | T1204 / T1059.001 | alert | Run dialog paste, -enc with hidden window |
+| R1-P02 | clickfix-encoded | T1204 / T1059.001 | alert | Abbreviation -e |
+| R1-P03 | clickfix-encoded | T1204 / T1059.001 | alert | Full -EncodedCommand |
+| R1-P04 | clickfix-encoded | T1204 / T1059.001 | alert | pwsh with -ec |
+| R1-P05 | clickfix-encoded | T1204 / T1059.001 | alert | Abbreviation -enco |
+| R1-P06 | clickfix-encoded | T1204 / T1059.001 | alert | Upper-case paths and flags (case-insensitive match) |
+| R1-P07 | clickfix-cradle | T1204 / T1059.001 | alert | iex with irm against a URL |
+| R1-P08 | clickfix-cradle | T1204 / T1059.001 | alert | WebClient DownloadString piped to iex |
+| R1-P09 | clickfix-mshta | T1204 / T1218.005 | alert | mshta against an https URL |
+| R1-P10 | clickfix-mshta | T1204 / T1218.005 | alert | mshta against an http URL on a reserved address |
+| R1-N01 | benign-near-miss | T1204 / T1059.001 | no alert | Scheduled task host runs an approved encoded script (same command as P01) |
+| R1-N02 | benign-near-miss | T1204 / T1059.001 | no alert | Software deployment agent runs an encoded script |
+| R1-N03 | benign-near-miss | T1204 / T1059.001 | no alert | Admin runs a cradle from a terminal, not from explorer.exe |
+| R1-N04 | benign-near-miss | T1204 / T1059.001 | no alert | Legacy launcher starts mshta on an intranet URL |
+| R1-N05 | benign-near-miss | T1204 / T1059.001 | no alert | explorer starts PowerShell on a script file |
+| R1-N06 | benign-near-miss | T1204 / T1059.001 | no alert | explorer starts PowerShell with a plain command |
+| R1-N07 | benign-near-miss | T1204 / T1059.001 | no alert | URL plus the word iexplore must not count as the iex cradle |
 | R1-N08 | benign-near-miss | T1218.005 | no alert | mshta on a local file |
-| R1-N09 | benign-near-miss | T1204.002 / T1059.001 | no alert | Browser started with a URL (URL present, image not PowerShell or mshta) |
-| R1-N10 | benign-near-miss | T1204.002 / T1059.001 | no alert | URL in a string, no download cradle |
-| R1-G01 | documented-gap | T1204.002 / T1059.001 | no alert | cmd.exe is the child of explorer, so the PowerShell comes later with a cmd parent |
-| R1-G02 | documented-gap | T1204.002 / T1059.001 | no alert | The PowerShell child of cmd.exe has a non-explorer parent |
-| R1-G03 | documented-gap | T1204.002 / T1059.001 | no alert | Renamed copy of powershell.exe |
-| R1-G04 | documented-gap | T1204.002 / T1059.001 | no alert | Truncated command line: Base64 cut below the 16-character floor |
-| R1-G05 | documented-gap | T1204.002 / T1059.001 | no alert | Cradle assembled from string pieces defeats keyword matching |
+| R1-N09 | benign-near-miss | T1204 / T1059.001 | no alert | Browser started with a URL (URL present, image not PowerShell or mshta) |
+| R1-N10 | benign-near-miss | T1204 / T1059.001 | no alert | URL in a string, no download cradle |
+| R1-G01 | documented-gap | T1204 / T1059.001 | no alert | cmd.exe is the child of explorer, so the PowerShell comes later with a cmd parent |
+| R1-G02 | documented-gap | T1204 / T1059.001 | no alert | The PowerShell child of cmd.exe has a non-explorer parent |
+| R1-G03 | documented-gap | T1204 / T1059.001 | no alert | Renamed copy of powershell.exe |
+| R1-G04 | documented-gap | T1204 / T1059.001 | no alert | Truncated command line: Base64 cut below the 16-character floor |
+| R1-G05 | documented-gap | T1204 / T1059.001 | no alert | Cradle assembled from string pieces defeats keyword matching |
 
 ## 4. Coverage matrix: rule 002 (non-browser credential-store read, conditional)
 
@@ -145,13 +145,14 @@ python -m pytest tests -v
 
 ## 8. Known limits
 
-- Rule 003 (C2 POST from a non-browser) is not written: no published C2 User-Agent **[V: absent]**, no baseline, and proxy logs lack the process name.
+- Rule 003 (C2 POST from a non-browser) is not written. Microsoft published no C2 User-Agent **[V: absent]**. ESET lists two Chrome-looking User-Agent strings for dynamic-config requests **[V: ESET]**, which would need a baseline of legitimate Chrome versions that the reference lab lacks. Proxy logs also lack the process name. The skip decision was first made on the wrong premise that no User-Agent was published; it should be reconfirmed.
 - Rule 001 misses: PowerShell started through `cmd.exe`, renamed copies, string-assembled cradles, and truncated command lines (cases R1-G01 to R1-G05).
 - Rule 002 misses: injection into a browser process, path-suffix spoofing, and browsers whose profile is not under `User Data` such as Opera (cases R2-G01 to R2-G03).
 - Process hollowing, in-memory loading and C2 content need telemetry the reference environment does not assume.
 - YARA rules use published strings only. Elastic reports the ChaCha20 constant is decrypted at runtime **[V]**, so the setup rule may miss the family it names, and it will match benign programs that use ChaCha20 and WinHTTP.
 - The `pe` module is not used, so no condition is untestable on synthetic filler.
-- ATT&CK IDs are not yet checked against v17 (`CTI_CONTEXT.md` section 3).
+- ATT&CK IDs are confirmed as listed on the MITRE S1213 page (footer v20.1) and, for some, in AA25-141B (v17), but are not checked against the v17 matrix (`CTI_CONTEXT.md` section 3).
+- Source claims in the docs were re-verified on 2026-11-22 against raw downloaded pages by exact string match. `iocs.csv` hashes were matched exactly, case included.
 
 ## 9. Real pytest output
 
@@ -324,7 +325,7 @@ X:\Defensive-Engineering-Lab\re-lumma-stealer\tests\test_mutations.py:98: Module
 =========================== short test summary info ===========================
 FAILED tests/test_mutations.py::test_m5_remove_one_indicator_from_config_strings_rule
 FAILED tests/test_mutations.py::test_m6_weaken_setup_condition_to_any_of - Mo...
-========================= 2 failed, 5 passed in 0.12s =========================
+========================= 2 failed, 5 passed in 0.13s =========================
 ```
 
 ### 9.3 YARA suite (exit code 2)
@@ -352,5 +353,5 @@ E   ModuleNotFoundError: No module named 'yara'
 =========================== short test summary info ===========================
 ERROR tests/test_yara_rules.py
 !!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
-============================== 1 error in 0.17s ===============================
+============================== 1 error in 0.15s ===============================
 ```

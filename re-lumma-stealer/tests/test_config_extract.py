@@ -15,8 +15,9 @@ import config_extract as cx
 import gen_artifacts as ga
 
 # Known-answer test: ChaCha20 with an all-zero key and nonce, first 64 keystream bytes.
-# Source: the widely published ChaCha20 test vector for a zero key/IV (draft-strombergson-chacha-test-vectors,
-# TC1, 256-bit key). Used to check the cipher call, not the schema.
+# A zero-key, zero-nonce ChaCha20 keystream vector. Its attribution (a published test-vector set) was NOT
+# verified from a fetched source; the value itself is checked by this test against the cryptography library.
+# Used to check the cipher call, not the schema.
 ZERO_KEY_KEYSTREAM_HEX = (
     "76b8e0ada0f13d90405d6ae55386bd28bdd219b8a08ded1aa836efcc8b770dc7"
     "da41597c5157488d7724e03fb8d84a376a43b8f41518a11cc387b669b2ee6586"

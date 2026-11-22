@@ -46,7 +46,7 @@ date: 2026-11-22
 modified: 2026-11-22
 tags:
     - attack.execution
-    - attack.t1204.002
+    - attack.t1204
     - attack.t1059.001
     - attack.t1218.005
 logsource:

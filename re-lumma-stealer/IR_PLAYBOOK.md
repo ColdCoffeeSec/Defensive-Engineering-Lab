@@ -9,7 +9,7 @@
 | **Triggers** | Sigma `re_lumma_001_clickfix_user_powershell.yml` (id `721a50ab-c835-444a-a68f-2f34ffb9169a`), level medium. Sigma `re_lumma_002_browser_store_read_nonbrowser.yml` (id `4b93a263-6439-4ea5-97a3-2d79f9f9f215`), level medium, **only if** your environment enables the 4663 SACL it needs. |
 | **Audience** | Tier 1 analyst. Tier 2 approves containment. |
 | **Related** | `CTI_CONTEXT.md`, `ANALYSIS.md`, `iocs.csv`, `ENVIRONMENT_ASSUMPTIONS.md` |
-| **ATT&CK (v17 pinned `[ASSUMED]`)** | T1204.002, T1059.001, T1218.005, T1555.003, T1539. IDs are **[A]**; see `CTI_CONTEXT.md` section 3 for what is and is not checked against v17. |
+| **ATT&CK (v17 pinned `[ASSUMED]`)** | T1204, T1059.001, T1218.005, T1555.003, T1539. IDs are **[A]**; see `CTI_CONTEXT.md` section 3 for what is and is not checked against v17. |
 
 > **Assumptions.** Roles and telemetry come from `ENVIRONMENT_ASSUMPTIONS.md`: Tier 1 triages and can close or escalate; Tier 2 approves containment, credential resets and host isolation; verdicts go to a channel named `feedback`; Windows 10/11 endpoints; Sysmon 1, 3, 11, 13, 22 and PowerShell 4104 collected; 30 days retention. **No response times are set here**, because the assumptions give none. Add your own SLAs. **No team names, contacts or ticket systems are named.** Every tool step below is generic. Replace it with your products' steps.
 
@@ -140,9 +140,9 @@ Each tuning change adds its fixture first, in `tests/fixtures/`, then the change
 ## Appendix B: Known gaps an analyst should remember
 
 1. No process-memory telemetry is assumed, so injection and in-memory loading are invisible.
-2. C2 traffic is HTTPS POST to Cloudflare-fronted hosts. Content is not visible, and no C2 User-Agent was published. **[V: Microsoft]** There is no rule 003.
+2. C2 traffic is HTTPS POST to Cloudflare-fronted hosts. Content is not visible, and Microsoft published no C2 User-Agent. **[V: Microsoft]** ESET lists two for dynamic-config requests. **[V: ESET]** There is no rule 003.
 3. Steam and Telegram fallback lookups look like normal web use. **[V: Microsoft; ESET]**
-4. The `iocs.csv` hashes are reported by CISA, not verified by us, and the family changes builds quickly. **[V: Check Point]** A hash miss means little.
+4. The `iocs.csv` hashes are reported by CISA, not verified by us, and the family's builds change over time (ESET reports replaced string-encryption algorithms and network protocol changes). **[V: ESET]** A hash miss means little.
 
 ## Appendix C: Version history
 
