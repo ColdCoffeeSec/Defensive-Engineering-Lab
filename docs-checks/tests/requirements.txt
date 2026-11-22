@@ -1,0 +1,6 @@
+# The documentation checks collect each module's tests (to verify the counts quoted in the docs) and run the
+# README commands tagged "# verified". They therefore need every module's test dependencies, plus sigma-cli for the
+# `sigma check` command in the re-lumma-stealer README.
+-r ../../re-lumma-stealer/tests/requirements.txt
+-r ../../cwe-078-os-command-injection/tests/requirements.txt
+sigma-cli==4.0.1
