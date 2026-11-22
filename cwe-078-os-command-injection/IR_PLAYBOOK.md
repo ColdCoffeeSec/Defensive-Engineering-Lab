@@ -4,7 +4,7 @@
 |---|---|
 | **Playbook ID** | PB-CMDI-001 |
 | **Version / date** | 1.0 / 2026-11-22 |
-| **Owner** | [SOC lead / team] |
+| **Owner** | ColdCoffeeSec |
 | **Trigger** | Sigma rule *OS Command Injection Attempt Against Ping Endpoint (Web Server Logs)*, id `2bd67884-7866-4e1d-8b23-b383fa80e288`, level **high** |
 | **Audience** | Tier 1 SOC analyst |
 | **Related** | `CTI_CONTEXT.md` (context and ATT&CK mapping), `detection_rules/cmdi_sigma.yml` |
