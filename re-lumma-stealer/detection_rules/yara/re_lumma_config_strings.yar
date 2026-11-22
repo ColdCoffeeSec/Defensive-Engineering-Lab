@@ -28,7 +28,7 @@ rule RE_Lumma_C2_Protocol_Strings
 {
     meta:
         description = "Plain-text Lumma C2 protocol strings from public reporting (low confidence)"
-        author = "[your name / team]"
+        author = "ColdCoffeeSec"
         date = "2026-11-22"
         status = "experimental"
         basis = "analyst-derived; strings reported by Microsoft 2025-05-21"
