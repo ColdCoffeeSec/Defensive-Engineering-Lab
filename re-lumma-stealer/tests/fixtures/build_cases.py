@@ -16,6 +16,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
+from logparse import build_proxy  # noqa: E402
 from winevent import build_security4663, build_sysmon1  # noqa: E402
 
 LOG_DIR = HERE / "logs"
@@ -27,10 +28,10 @@ MSHTA = r"C:\Windows\System32\mshta.exe"
 EXPLORER = r"C:\Windows\explorer.exe"
 
 
-def _case(case_id, group, category, technique, description, raw, expected_fields, expected_detected):
+def _case(case_id, group, category, technique, description, raw, expected_fields, expected_detected, log_format="windows_event_xml"):
     return {
         "id": case_id, "group": group, "category": category, "technique": technique,
-        "description": description, "log_format": "windows_event_xml", "raw": raw,
+        "description": description, "log_format": log_format, "raw": raw,
         "expected_fields": expected_fields, "expected_detected": expected_detected,
     }
 
@@ -158,8 +159,36 @@ def rule002_cases():
     ]
 
 
+# The two User-Agent strings ESET lists in Table 2 (matched exactly against the raw page on 2026-11-22).
+UA_CHROME_119 = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+UA_CHROME_109 = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36"
+# A newer Chrome version. The number is illustrative; it is not a claim about the current release.
+UA_CHROME_NEWER = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+
+
+def r3(case_id, category, description, method, ua, detected, host="c2-placeholder.example", uri="/api", status="200"):
+    raw = build_proxy(**{"cs-method": method, "c-useragent": ua, "cs-host": host, "cs-uri-stem": uri, "sc-status": status})
+    return _case(case_id, "re_lumma_003", category, "T1071.001", description, raw,
+                 {"cs-method": method, "c-useragent": ua, "LogType": "proxy"}, detected, log_format="proxy_json")
+
+
+def rule003_cases():
+    return [
+        r3("R3-P01", "c2-useragent", "POST with ESET's 'Old' User-Agent (Chrome/119) to a synthetic C2 host", "POST", UA_CHROME_119, True),
+        r3("R3-P02", "c2-useragent", "POST with ESET's 'New' User-Agent (Chrome/109) to a synthetic C2 host", "POST", UA_CHROME_109, True),
+        r3("R3-N01", "benign-near-miss", "Benign POST with a newer Chrome version (not one of the two strings)", "POST", UA_CHROME_NEWER, False,
+           host="app.example", uri="/login"),
+        r3("R3-N02", "benign-near-miss", "GET with the Chrome/119 string: the rule requires POST", "GET", UA_CHROME_119, False,
+           host="www.example", uri="/index.html"),
+        r3("R3-K01", "known-fp-needs-tuning", "Legitimate user on an old Chrome/109 build POSTs a web form. The rule alerts; there is no baseline to tune against.",
+           "POST", UA_CHROME_109, True, host="intranet.example", uri="/forms/submit"),
+        r3("R3-G01", "documented-gap", "Un-inspected HTTPS: the proxy logs a CONNECT with no User-Agent, so the rule is blind",
+           "CONNECT", "-", False, uri="-"),
+    ]
+
+
 def build_all():
-    return {"rule001_cases.jsonl": rule001_cases(), "rule002_cases.jsonl": rule002_cases()}
+    return {"rule001_cases.jsonl": rule001_cases(), "rule002_cases.jsonl": rule002_cases(), "rule003_cases.jsonl": rule003_cases()}
 
 
 def main():

@@ -19,11 +19,12 @@ import yaml
 import config_extract as cx
 import gen_artifacts as ga
 from conftest import LOG_DIR, ROOT, SIGMA_DIR, YARA_DIR
+from logparse import parse_any
 from sigma_eval import fires
-from winevent import parse_event
 
 R1 = SIGMA_DIR / "re_lumma_001_clickfix_user_powershell.yml"
 R2 = SIGMA_DIR / "re_lumma_002_browser_store_read_nonbrowser.yml"
+R3 = SIGMA_DIR / "re_lumma_003_c2_useragent_eset.yml"
 
 
 def cases(name):
@@ -33,7 +34,7 @@ def cases(name):
 def red_cases(rule_text, case_file):
     """IDs of cases where the (possibly mutated) rule gives a different verdict than expected_detected."""
     rule = yaml.safe_load(rule_text)
-    return {c["id"] for c in cases(case_file) if fires(rule, parse_event(c["raw"])) is not c["expected_detected"]}
+    return {c["id"] for c in cases(case_file) if fires(rule, parse_any(c["log_format"], c["raw"])) is not c["expected_detected"]}
 
 
 def mutate(text, old, new):
@@ -45,6 +46,7 @@ def mutate(text, old, new):
 def test_baseline_unmutated_rules_have_no_red_cases():
     assert red_cases(R1.read_text(encoding="utf-8"), "rule001_cases.jsonl") == set()
     assert red_cases(R2.read_text(encoding="utf-8"), "rule002_cases.jsonl") == set()
+    assert red_cases(R3.read_text(encoding="utf-8"), "rule003_cases.jsonl") == set()
 
 
 # --------------------------------------------------------------------------- Sigma mutations
@@ -71,6 +73,18 @@ def test_m3_remove_browser_filter_from_rule_002():
     assert {"R2-N05", "R2-N06"} <= red  # the browser-updater cases named in the blueprint
     assert named <= red
     assert red == named | {"R2-G01", "R2-G02"}  # the two filter-evasion gaps also start to alert
+
+
+def test_m7_drop_the_chrome_109_user_agent_from_rule_003():
+    text = mutate(
+        R3.read_text(encoding="utf-8"),
+        "            - 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36'\n",
+        "",
+    )
+    red = red_cases(text, "rule003_cases.jsonl")
+    named = {"R3-P02"}  # the Chrome/109 positive
+    assert named <= red
+    assert red == named | {"R3-K01"}  # the legitimate-Chrome/109 case, which the rule alerts on by design, goes quiet
 
 
 # --------------------------------------------------------------------------- extractor mutation

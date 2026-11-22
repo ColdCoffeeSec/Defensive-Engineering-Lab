@@ -13,11 +13,13 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from logparse import build_proxy  # noqa: E402
 from winevent import build_security4663, build_sysmon1  # noqa: E402
 
 SEED = 1337
 RULE001_COUNT = 300
 RULE002_COUNT = 200
+RULE003_COUNT = 200
 
 PS = r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
 PWSH = r"C:\Program Files\PowerShell\7\pwsh.exe"
@@ -94,4 +96,22 @@ def rule002_events():
             proc = rng.choice([r"C:\Program Files\Vendor Sync\sync.exe", r"C:\Program Files\Vendor PM\pm.exe"])
             obj = rf"C:\ProgramData\Vendor\{rng.choice(['Login Data', 'Cookies', 'logins.json'])}"
         events.append(build_security4663(ObjectName=obj, ProcessName=proc, SubjectUserName=user))
+    return events
+
+
+def rule003_events():
+    """Benign proxy records. No record carries either of the two ESET User-Agent strings."""
+    rng = random.Random(SEED + 2)
+    uas = [f"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{v}.0.0.0 Safari/537.36"
+           for v in list(range(120, 146))]
+    uas += [f"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:{v}.0) Gecko/20100101 Firefox/{v}.0" for v in (128, 130, 133, 140)]
+    uas += [f"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{v}.0.0.0 Safari/537.36 Edg/{v}.0.0.0"
+            for v in (125, 130, 136)]
+    uas += ["python-requests/2.32.3", "curl/8.9.1", "Microsoft-CryptoAPI/10.0", "Windows-Update-Agent/10.0.10011.16384"]
+    hosts = ["app.example", "www.example", "intranet.example", "updates.example"]
+    events = []
+    for _ in range(RULE003_COUNT):
+        events.append(build_proxy(**{
+            "cs-method": rng.choice(["GET", "GET", "POST", "HEAD"]), "c-useragent": rng.choice(uas),
+            "cs-host": rng.choice(hosts), "cs-uri-stem": f"/p{rng.randint(1, 999)}", "c-ip": f"192.0.2.{rng.randint(2, 250)}"}))
     return events

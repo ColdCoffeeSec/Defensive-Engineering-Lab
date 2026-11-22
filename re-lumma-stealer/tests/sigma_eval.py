@@ -146,6 +146,8 @@ def evaluate(rule, event):
 def logsource_applies(rule, event):
     """True if the event comes from the log source the rule declares."""
     ls = rule["logsource"]
+    if ls.get("category") == "proxy":
+        return event.get("LogType") == "proxy"
     if ls.get("product") != "windows":
         raise UnsupportedSigma(f"unsupported product {ls.get('product')!r}")
     if ls.get("category") == "process_creation":
