@@ -1,0 +1,8 @@
+# Pinned versions. The pySigma version is also asserted in tests/test_sigma_rules.py.
+# Local development used Python 3.14 for the Sigma and extractor tests; CI uses Python 3.12.
+# yara-python has no Windows wheel for Python 3.14, so the YARA tests need Python 3.12 (CI or a container).
+pysigma==2.1.1
+PyYAML==6.0.4
+cryptography==50.0.2
+pytest==9.2.0
+yara-python==4.5.4

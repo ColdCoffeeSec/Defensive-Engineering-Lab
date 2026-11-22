@@ -1,0 +1,87 @@
+# -----------------------------------------------------------------------------
+# Non-browser read of browser credential / cookie stores (CONDITIONAL RULE)
+# Companion docs: ../../CTI_CONTEXT.md, ../../ANALYSIS.md section 4, ../../TESTING.md
+#
+# *** THIS RULE CANNOT FIRE IN THE REFERENCE ENVIRONMENT. ***
+# It needs Security event 4663 with a SACL on browser profile paths.
+# ENVIRONMENT_ASSUMPTIONS.md section 1 states that this is NOT enabled, and that
+# Sysmon 11 (file create) does not record reads. The rule is kept so a deployer who
+# enables that audit has a tested starting point. Fixtures prove the logic only.
+#
+# NOT DEFINED BY ENVIRONMENT_ASSUMPTIONS.md, and therefore ANALYST-DERIVED [A]:
+#   * the list of credential-store and cookie file names and profile directories,
+#   * which access types the SACL audits,
+#   * which processes count as the browser.
+# A deployer must align these with their own SACL and install paths.
+#
+# The behaviour itself, a stealer reading browser credentials and cookies, is
+# reported in public sources [V: MITRE S1213; Microsoft 2025-05-21].
+#
+# SOURCE LIMITS:
+#   * 4663 is high volume. A SACL scoped to the files below keeps it manageable,
+#     but a broad SACL will flood the SIEM.
+#   * The rule sees the process that opened the file. A stealer that injects into a
+#     browser process, or that copies the file with a trusted process, is not seen.
+#   * The ProcessName allow-list is path-based. Browsers installed to other paths
+#     (portable builds, other Chromium forks) will alert until added.
+#   * Backup, antivirus, sync and password-manager software that reads profile paths
+#     will alert until tuned locally.
+#   * A read does not prove theft. It shows a non-browser process opened the file.
+# -----------------------------------------------------------------------------
+title: Non-Browser Process Reads Browser Credential or Cookie Store (Needs 4663 SACL)
+id: 4b93a263-6439-4ea5-97a3-2d79f9f9f215
+status: experimental
+description: |
+    Detects Windows Security event 4663 (an attempt to access an object) on browser
+    credential, cookie and key-material files, where the accessing process is not a
+    known browser or browser updater. Stealers such as Lumma read these files to take
+    saved passwords, session cookies and the key that protects them. The rule requires
+    a SACL on the profile paths; it does nothing without one. The rule fires on the
+    file access, not on theft. Confirm in IR_PLAYBOOK.md.
+references:
+    - https://attack.mitre.org/software/S1213/
+    - https://www.microsoft.com/en-us/security/blog/2025/05/21/lumma-stealer-breaking-down-the-delivery-techniques-and-capabilities-of-a-prolific-infostealer/
+author: '[your name / team]'
+date: 2026-11-22
+modified: 2026-11-22
+tags:
+    - attack.credential-access
+    - attack.t1555.003
+    - attack.t1539
+logsource:
+    product: windows
+    service: security
+detection:
+    selection_event:
+        EventID: 4663
+        ObjectType: 'File'
+    selection_profile_dir:
+        ObjectName|contains:
+            - '\User Data\'
+            - '\Mozilla\Firefox\Profiles\'
+    selection_store_file:
+        ObjectName|endswith:
+            - '\Login Data'
+            - '\Login Data For Account'
+            - '\Cookies'
+            - '\Web Data'
+            - '\Local State'
+            - '\logins.json'
+            - '\key4.db'
+            - '\cookies.sqlite'
+    # Browsers and their own updaters, matched on a path suffix, not on a bare file name.
+    filter_browser:
+        ProcessName|endswith:
+            - '\Google\Chrome\Application\chrome.exe'
+            - '\Microsoft\Edge\Application\msedge.exe'
+            - '\Mozilla Firefox\firefox.exe'
+            - '\BraveSoftware\Brave-Browser\Application\brave.exe'
+            - '\Google\Update\GoogleUpdate.exe'
+            - '\Microsoft\EdgeUpdate\MicrosoftEdgeUpdate.exe'
+    condition: selection_event and selection_profile_dir and selection_store_file and not filter_browser
+falsepositives:
+    - Backup, antivirus, endpoint protection and file-sync software that reads browser profile folders.
+    - Password managers and browser-migration tools that import saved logins on purpose.
+    - Browsers or browser forks installed to a path that the filter does not list (portable builds, Opera, Vivaldi, other Chromium forks).
+    - Forensic and administrative tools run by the security team.
+level: medium

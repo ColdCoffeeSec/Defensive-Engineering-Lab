@@ -17,12 +17,13 @@ Threat intelligence decides what to detect, the Sigma rule encodes it, the tests
 
 ## Quick start
 
-Run these from inside this folder.
+Run these from the repository root.
 
 ```bash
-python -m pip install -r tests/requirements.txt    # pytest, PyYAML
-pytest tests/                                      # all 24 cases plus coverage checks
-pytest tests/ -k TP-07                             # a single case
+# verified
+python -m pip install -r cwe-078-os-command-injection/tests/requirements.txt    # pytest, PyYAML
+python -m pytest cwe-078-os-command-injection/tests/                            # all 24 cases plus coverage checks
+python -m pytest cwe-078-os-command-injection/tests/ -k TP-07                   # a single case
 ```
 
 Expected result: `24/24 cases PASS` and `40 passed`.

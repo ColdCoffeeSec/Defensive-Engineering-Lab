@@ -1,0 +1,82 @@
+# -----------------------------------------------------------------------------
+# Lumma dynamic-config User-Agent strings in proxy logs (LOW-CONFIDENCE rule)
+# Companion docs: ../../ANALYSIS.md sections 4 and 4.1, ../../TESTING.md, ../../IR_PLAYBOOK.md
+#
+# *** LOW CONFIDENCE. Treat a hit as a lead to check, never as a verdict. ***
+#
+# TAGS: [A] analyst-derived rule. [V: ESET] the two User-Agent strings.
+#   ESET's write-up of 21 May 2025 (Table 2, "User-Agent variants") lists exactly two
+#   User-Agent strings that Lumma Stealer sends in its HTTPS POST request for the
+#   dynamic configuration. ESET calls the Chrome/119 string "Old" and the Chrome/109
+#   string "New". The page says providing the right string "is essential for receiving
+#   the dynamic configuration" [V: ESET]. Both strings were matched EXACTLY, once each,
+#   against the raw ESET page text on 2026-11-22. The page contains no other
+#   User-Agent string, and NO OTHER User-Agent is used in this rule. Do not add one
+#   without a source that is checked the same way.
+#   Everything else here is [A]: the choice to alert on these strings, the POST
+#   condition (ESET says the config request is an HTTPS POST [V: ESET]), the level.
+#   Decision to write this rule: made 2026-11-22 by the repo owner.
+#
+# THE RULE IS WEAK FOR THESE REASONS (each is also stated in TESTING.md):
+#   1. LEGITIMATE TRAFFIC CAN USE THESE CHROME VERSIONS. Chrome/119 and Chrome/109
+#      are ordinary browser builds. Any user, kiosk, VM image or application that
+#      still sends one of these strings and POSTs will alert. (Fixture R3-K01.)
+#   2. PROXY LOGS DO NOT RECORD THE PROCESS NAME. A proxy record shows a client
+#      address, method, host and User-Agent. It cannot tell you which process on the
+#      host sent the request, so the rule CANNOT CONFIRM THE SOURCE PROCESS. The
+#      analyst must find the process on the endpoint (IR_PLAYBOOK.md, rule 003 path).
+#   3. THERE IS NO LOCAL BASELINE OF NORMAL TRAFFIC. ENVIRONMENT_ASSUMPTIONS.md has
+#      none, so nobody knows how often these two strings appear in normal traffic.
+#      The alert volume and false-positive rate are UNKNOWN until a baseline is run.
+#
+# SOURCE LIMITS:
+#   * A proxy sees the User-Agent only when it can read the HTTP request: plain HTTP,
+#     or HTTPS with TLS inspection. For un-inspected HTTPS the proxy logs a CONNECT
+#     with no User-Agent and this rule is BLIND (fixture R3-G01).
+#     ENVIRONMENT_ASSUMPTIONS.md says User-Agent is logged "where available"; it does
+#     not say TLS is inspected. Whether the rule can fire at all is UNKNOWN.
+#   * ESET reports the strings from its own analysis of samples up to May 2025
+#     [V: ESET]. The operators can change them at any time. The rule says nothing
+#     about builds that use any other string.
+#   * The field names follow the Sigma "proxy" category (c-useragent, cs-method).
+#     Map them to your proxy's field names.
+#   * It matches the exact strings, case-insensitively as Sigma does. A request that
+#     differs by one character is not matched.
+# -----------------------------------------------------------------------------
+title: Lumma Dynamic-Config User-Agent Strings Published by ESET (Proxy, Low Confidence)
+id: eb261e0a-7f43-404f-9e8b-9a653b2af43e
+status: experimental
+description: |
+    LOW CONFIDENCE. Detects an HTTP POST in proxy logs whose User-Agent is one of the two
+    strings ESET published for Lumma Stealer's dynamic-configuration request (Chrome/119
+    and Chrome/109 builds). Legitimate browsers and applications can send the same
+    strings. A proxy record does not name the process that sent the request. No local
+    baseline of normal traffic exists. A hit is a lead: confirm the source process on the
+    endpoint before treating it as Lumma. A miss means little, because the operators can
+    change the strings and un-inspected HTTPS shows no User-Agent.
+references:
+    - https://www.welivesecurity.com/en/eset-research/eset-takes-part-global-operation-disrupt-lumma-stealer/
+    - https://www.microsoft.com/en-us/security/blog/2025/05/21/lumma-stealer-breaking-down-the-delivery-techniques-and-capabilities-of-a-prolific-infostealer/
+author: '[your name / team]'
+date: 2026-11-22
+modified: 2026-11-22
+tags:
+    - attack.command-and-control
+    - attack.t1071.001
+logsource:
+    category: proxy
+detection:
+    # ESET says the configuration request is an HTTPS POST [V: ESET]. Method visibility is [ASSUMED].
+    selection_method:
+        cs-method: 'POST'
+    # The ONLY two User-Agent strings. Source: ESET Table 2, exact match 2026-11-22.
+    selection_useragent:
+        c-useragent:
+            - 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+            - 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36'
+    condition: selection_method and selection_useragent
+falsepositives:
+    - Real users, kiosks, VM images or applications that still send a Chrome/119 or Chrome/109 User-Agent and POST. Likely until a baseline shows how common they are.
+    - Automation, scanners or testing tools that copy a browser User-Agent string.
+    - Any legitimate application that embeds one of these strings in its own HTTP client.
+level: low

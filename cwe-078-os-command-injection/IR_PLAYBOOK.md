@@ -194,10 +194,10 @@ Every closure ends with a **detection feedback** line: was the rule too noisy, d
 
 | You see (decoded) | It is trying to | Notes |
 |---|---|---|
-| `host=1.2.3.4;id` | Run a second command after `ping` | `;` separates commands on Unix shells |
-| `host=1.2.3.4\|cat /etc/passwd` | Pipe `ping` output into another command | `\|\|` also works as "run if previous failed" |
-| `host=1.2.3.4%26%26id` (decodes to `&&`) | Run `id` if `ping` succeeds | The **encoded** form is effective |
-| `host=1.2.3.4&&id` (raw) | Same intent, but the server splits at `&` | Becomes a separate parameter; **ineffective**, still malicious intent |
+| `host=203.0.113.4;id` | Run a second command after `ping` | `;` separates commands on Unix shells |
+| `host=203.0.113.4\|cat /etc/passwd` | Pipe `ping` output into another command | `\|\|` also works as "run if previous failed" |
+| `host=203.0.113.4%26%26id` (decodes to `&&`) | Run `id` if `ping` succeeds | The **encoded** form is effective |
+| `host=203.0.113.4&&id` (raw) | Same intent, but the server splits at `&` | Becomes a separate parameter; **ineffective**, still malicious intent |
 | `host=$(whoami)` or backticks | Substitute the output of a command | Often used to prove execution by reflecting the result into the argument |
 | `...%0aid` | Newline starts a new command | |
 | `${IFS}` in place of spaces | Evade filters that block spaces | |

@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security issue privately
+    url: https://github.com/ColdCoffeeSec/Defensive-Engineering-Lab/security/advisories/new
+    about: Use this for a committed secret, a real sample, real indicators, or unsafe tool behaviour. Do not open a public issue for these.

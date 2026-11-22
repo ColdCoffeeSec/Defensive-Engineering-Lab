@@ -1,0 +1,64 @@
+name: New module request
+description: Suggest a new detection module.
+title: "New module: <identifier>"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Modules are built from public sources and synthetic data. No malware samples are handled in this repository. Do not paste real logs, hostnames, IP addresses or customer data. Use synthetic values (RFC 5737 addresses and `.example` names).
+  - type: dropdown
+    id: module_type
+    attributes:
+      label: Module type
+      options:
+        - Weakness (CWE)
+        - Technique (ATT&CK)
+        - Reverse engineering (malware family)
+        - Cloud
+        - Network
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: identifier
+    attributes:
+      label: Identifier
+      description: The CWE number, ATT&CK ID, malware family name, or service name.
+    validations:
+      required: true
+  - type: textarea
+    id: why_now
+    attributes:
+      label: Why this module, now
+      description: The threat, incident, audit finding or training goal, in one or two sentences.
+    validations:
+      required: true
+  - type: textarea
+    id: end_state
+    attributes:
+      label: What a Tier 1 analyst should be able to do afterwards
+    validations:
+      required: true
+  - type: textarea
+    id: telemetry
+    attributes:
+      label: Telemetry the rules would rely on
+      description: For example process creation, object access auditing, proxy logs. Say which of it you believe is commonly available.
+    validations:
+      required: true
+  - type: textarea
+    id: sources
+    attributes:
+      label: Public sources
+      description: Links to the public reporting the module would be built from.
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmation
+      options:
+        - label: I am not asking for malware samples to be committed or handled in this repository.
+          required: true
+        - label: I included no real hostnames, IP addresses, user names or customer data.
+          required: true

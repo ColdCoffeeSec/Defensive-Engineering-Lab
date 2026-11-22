@@ -1,0 +1,91 @@
+# -----------------------------------------------------------------------------
+# ClickFix-style user-initiated PowerShell / mshta (Lumma delivery)
+# Companion docs: ../../CTI_CONTEXT.md, ../../ANALYSIS.md section 4, ../../IR_PLAYBOOK.md
+#
+# PATTERNS ARE ANALYST-DERIVED [A]. They are written from the public description of
+# the chain (user pastes a command into the Run dialog; Base64 PowerShell, or mshta
+# that fetches remote code, follows) [V: CISA AA25-141B; Microsoft 2025-05-21].
+# No public detection rule text was copied.
+#
+# ASSUMED TELEMETRY (ENVIRONMENT_ASSUMPTIONS.md section 1): Sysmon event ID 1
+# (process creation) is collected on Windows 10/11 endpoints.
+#
+# SOURCE LIMITS (what this data source cannot show):
+#   * Sysmon 1 can truncate long command lines. A Base64 blob cut short can still
+#     match the encoded-command pattern, but a cradle keyword placed after the cut
+#     is lost.
+#   * The Run dialog starts its command through explorer.exe. So do the Start menu,
+#     desktop shortcuts and "Open with". explorer.exe as parent is necessary for this
+#     rule, not sufficient, and is only a hint about the Run dialog. A pasted command
+#     that first starts cmd.exe or conhost and then PowerShell has a non-explorer
+#     parent and is NOT covered (known gap).
+#   * Obfuscation that avoids every listed pattern is not covered: for example
+#     PowerShell launched with a script file, a renamed copy of powershell.exe, or a
+#     command that is split across several clipboard pastes.
+#   * PowerShell 4104 script block text is not used. A 4104 event carries no parent
+#     process, so it cannot show that a user launched the command.
+#   * The rule fires on the launch. It does not show that a stealer ran.
+# -----------------------------------------------------------------------------
+title: ClickFix-Style PowerShell or Mshta Launched From Explorer
+id: 721a50ab-c835-444a-a68f-2f34ffb9169a
+status: experimental
+description: |
+    Detects Windows process-creation events where explorer.exe starts powershell.exe or
+    pwsh.exe with an encoded command or a download cradle against a URL, or starts
+    mshta.exe against a URL. This is the shape reported for the ClickFix delivery of
+    Lumma Stealer: the user pastes a command into the Run dialog, and Base64 PowerShell
+    or mshta that fetches further code runs. The rule fires on the launch only. It does
+    not prove the command was malicious or that Lumma ran. Confirm the parent chain, the
+    decoded or fetched content and any child process in IR_PLAYBOOK.md.
+references:
+    - https://www.cisa.gov/news-events/cybersecurity-advisories/aa25-141b
+    - https://www.microsoft.com/en-us/security/blog/2025/05/21/lumma-stealer-breaking-down-the-delivery-techniques-and-capabilities-of-a-prolific-infostealer/
+    - https://attack.mitre.org/software/S1213/
+author: '[your name / team]'
+date: 2026-11-22
+modified: 2026-11-22
+tags:
+    - attack.execution
+    - attack.t1204
+    - attack.t1059.001
+    - attack.t1218.005
+logsource:
+    category: process_creation
+    product: windows
+detection:
+    # Run-dialog launches have explorer.exe as the parent. Necessary, not sufficient.
+    selection_parent:
+        ParentImage|endswith: '\explorer.exe'
+    selection_ps_image:
+        Image|endswith:
+            - '\powershell.exe'
+            - '\pwsh.exe'
+    # PowerShell accepts -e, -ec, -en... as abbreviations of -EncodedCommand.
+    # The 16-character Base64 floor keeps "-e <word>" from matching.
+    selection_ps_encoded:
+        CommandLine|re: '(?i)\s-(?:e|ec|en[a-z]*)\s+[A-Za-z0-9+/=]{16,}'
+    selection_ps_url:
+        CommandLine|contains:
+            - 'http://'
+            - 'https://'
+    # Word boundaries keep "iex" from matching "iexplore.exe".
+    selection_ps_cradle:
+        CommandLine|re: '(?i)\b(?:iex|invoke-expression|downloadstring|invoke-webrequest|invoke-restmethod|net\.webclient|iwr|irm)\b'
+    selection_mshta_image:
+        Image|endswith: '\mshta.exe'
+    selection_mshta_url:
+        CommandLine|contains:
+            - 'http://'
+            - 'https://'
+    condition: >
+        selection_parent and (
+            (selection_ps_image and (selection_ps_encoded or (selection_ps_url and selection_ps_cradle)))
+            or
+            (selection_mshta_image and selection_mshta_url)
+        )
+falsepositives:
+    - A user or administrator who runs an encoded or download-cradle PowerShell one-liner from the Run dialog or the Start menu on purpose.
+    - Installers or help pages that tell users to paste a PowerShell install command (some developer tools and package managers do this).
+    - Software deployed through explorer.exe-launched scripts that fetch from an internal URL.
+    - mshta-based legacy applications that load an HTA from an intranet URL.
+level: medium
