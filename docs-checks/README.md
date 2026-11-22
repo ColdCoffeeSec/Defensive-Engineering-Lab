@@ -9,7 +9,8 @@ The checks are pure functions in [`tests/docs_lib.py`](./tests/docs_lib.py). Eac
 | Check | Fails when |
 |---|---|
 | Links | A relative link or an anchor in any `.md` file does not resolve. The anchor must match a heading, using GitHub's slug rules. External URLs are not fetched. |
-| Numbers | A README or `TESTING.md` quotes a count of tests, cases, rules or "passed" that differs from what pytest collects or the files contain. Text inside fenced blocks is skipped, because it is pasted tool output. A number in root prose with no module context is rejected: link to the module's `TESTING.md` instead. |
+| Numbers | A README or `TESTING.md` quotes a count in prose that differs from the real one. "N tests" and "N passed" are compared with what `pytest --collect-only` finds for that suite. "N cases" and "N/N cases" are compared with the non-empty lines of the suite's `*.jsonl` corpus, or of the one corpus file the same line names. "N rules", "N Sigma rules" and "N YARA rules" are compared with the rule files. "N labelled raw log lines" and "N labelled cases" mean the same as "N cases". A phrase that can mean two things fails with a request for a clearer one: "N test cases" and "N case tests" (pytest tests or corpus cases?), "N labelled" followed by any other word (events, benign cases, nothing), and a line that names two corpus files. Fenced blocks are skipped here (see the next row). A number in root prose with no module context is rejected: link to the module's `TESTING.md` instead. |
+| Pasted pytest output | In a fenced block of any `.md` file, a `collected N items` line (or `N tests collected`) or an `N passed` summary line differs from the real collected count of the suite the block names. A summary adds up passed, failed, skipped, deselected, xfailed, xpassed and errors; warnings are not counted. The suite comes from the block's `rootdir:` line or from the `<suite>/tests/` paths of its test ids. A block that names no suite, or two, fails and says so. Test id lines (`path::name`) are not read, because a parametrized id can hold any text. |
 | Command tags | A command block in a README, `CONTRIBUTING.md` or `SECURITY.md` does not start with `# verified`, `# verified-locally: ...` or `# not verified: ...`. |
 | Verified commands | A block tagged `# verified` exits non-zero when run from the repository root. A verified block may not call this suite, because it would run itself. |
 | Module table | A row in the root README does not match a module folder, or a module folder is missing from the table, or lacks `README.md`, `TESTING.md`, `tests/requirements.txt` or a `tests/` directory. |
@@ -24,6 +25,8 @@ The checks are pure functions in [`tests/docs_lib.py`](./tests/docs_lib.py). Eac
 ## Every check can fail
 
 [`tests/test_docs_mutations.py`](./tests/test_docs_mutations.py) breaks one thing in an in-memory copy of the repository for each check, for example a broken link, a wrong count, a PE header in a fixture, a real IP address in a README, or a SIEM name typed into the rulebook. It then asserts that the check turns red with the expected message. Nothing on disk changes. A final test fails if any check has no mutation. This is the documentation counterpart of M1 to M7 in `re-lumma-stealer`.
+
+For the count checks the mutations change a number (a stale corpus count, `collected` and `passed` lines), delete the suite marker of a pasted block (its `rootdir:` line and its test paths), make a block name two suites, and write a phrase that cannot be told apart ("N labelled benign events", "N case tests"). The other direction is tested too: `tests/test_docs_checks.py` feeds the checks small correct documents (a correct count in each accepted phrasing, a block with only a `rootdir:` line, a block with only test paths, a block with failures or deselected tests, one block per suite) and asserts they still pass.
 
 ## Run it
 
@@ -51,5 +54,6 @@ Add a host to that list only because it is a cited source or a namespace URI, an
 - They do not judge whether a claim is true. They check that links resolve, counts match, commands run and the safety rules hold.
 - External URLs are not fetched, so a dead external link passes.
 - Domain detection uses a fixed list of top-level domains. A domain under a TLD that is not on the list is not caught.
-- The number check only reads `README.md` and `TESTING.md` files, and only phrases of the form "N tests", "N cases", "N rules" (also "Sigma rules", "YARA rules") and "N passed".
+- The prose number check only reads `README.md` and `TESTING.md` files, and only the phrases listed in the table. It does not check subset counts such as "N true positives" or "N benign", per-format or per-category counts, or the `N/N cases PASS` lines inside a pasted block.
+- The pasted-output check compares only the `collected` and `passed` numbers with the current collection. It does not compare test ids, timings or versions, and it cannot tell whether the output was ever really produced: a block edited by hand to carry the right numbers passes.
 - A `# verified` command is run only in the environment that runs this suite. That is Linux with bash in CI and in the container.

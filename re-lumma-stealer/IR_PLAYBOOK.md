@@ -5,7 +5,7 @@
 | **Playbook ID** | PB-RE-LUMMA-001 |
 | **Version / date** | 0.1 draft / 2026-11-22 |
 | **Review status** | **Not reviewed.** `ENVIRONMENT_ASSUMPTIONS.md` section 7 assumes a review against the Tier 1 and Tier 2 roles. That has not happened. Do not treat this playbook as approved. |
-| **Owner** | [SOC lead / team] |
+| **Owner** | ColdCoffeeSec (reference playbook). Deploying teams replace this with their own owner. |
 | **Triggers** | Sigma `re_lumma_001_clickfix_user_powershell.yml` (id `721a50ab-c835-444a-a68f-2f34ffb9169a`), level medium. Sigma `re_lumma_002_browser_store_read_nonbrowser.yml` (id `4b93a263-6439-4ea5-97a3-2d79f9f9f215`), level medium, **only if** your environment enables the 4663 SACL it needs. Sigma `re_lumma_003_c2_useragent_eset.yml` (id `eb261e0a-7f43-404f-9e8b-9a653b2af43e`), level **low**, low confidence, **only if** your proxy logs the User-Agent. |
 | **Audience** | Tier 1 analyst. Tier 2 approves containment. |
 | **Related** | `CTI_CONTEXT.md`, `ANALYSIS.md`, `iocs.csv`, `ENVIRONMENT_ASSUMPTIONS.md` |

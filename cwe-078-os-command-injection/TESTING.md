@@ -84,7 +84,7 @@ pytest tests/
 
 ### Latest result
 
-Run on 2026-11-22 in the `python:3.12` container (Python 3.12.16, pytest 9.2.0), from the repository root. The 32 case tests and 29 coverage, integrity and sensitivity checks all pass (excerpt):
+Run on 2026-11-22 in the `python:3.12` container (Python 3.12.16, pytest 9.2.0), from the repository root. All 61 tests pass: 32 of them run one corpus case each (`test_case`), and the other 29 are coverage, integrity and sensitivity checks (excerpt):
 
 ```text
 cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-01] PASSED [ 16%]
@@ -170,4 +170,4 @@ python cwe-078-os-command-injection/tools/convert_check.py
 
 1. Append one JSON line to `tests/test_logs.jsonl` with the same keys as its neighbours: a real-format `raw` line, the `expected_fields` it should parse to, and `expected_detected`. IIS cases also carry `iis_fields` (the `#Fields:` header).
 2. Add the `id` (in backticks) to the table above. A test fails if any case is missing from this file.
-3. Update `EXPECTED_CASES` in `tests/test_rule.py`, and the case and test counts quoted in this file and in the README, then run `pytest tests/`. The `docs-checks` suite fails if a quoted count drifts.
+3. Update `EXPECTED_CASES` in `tests/test_rule.py`, and the case and test counts quoted in this file and in the README, then run `pytest tests/`. The `docs-checks` suite fails if a quoted count, or a `collected` or `passed` line in a pasted pytest block, drifts.
