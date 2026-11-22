@@ -41,7 +41,7 @@ description: |
 references:
     - https://attack.mitre.org/software/S1213/
     - https://www.microsoft.com/en-us/security/blog/2025/05/21/lumma-stealer-breaking-down-the-delivery-techniques-and-capabilities-of-a-prolific-infostealer/
-author: '[your name / team]'
+author: 'ColdCoffeeSec'
 date: 2026-11-22
 modified: 2026-11-22
 tags:
