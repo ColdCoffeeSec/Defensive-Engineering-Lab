@@ -93,7 +93,7 @@ cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-02] PASSED [ 18%]
 cwe-078-os-command-injection/tests/test_rule.py::test_case[B-16] PASSED  [ 68%]
 ...
 32/32 cases PASS
-============================== 60 passed in 0.33s ==============================
+============================== 60 passed in 0.35s ==============================
 ```
 
 ### Can these tests actually fail?
@@ -127,10 +127,39 @@ Yes. `tests/test_gap_cases.py` adds the missing pattern to an **in-memory copy**
 
 `B-16` alerts because `;` is in the raw payload list. `tests/test_gap_cases.py` removes `;` from that list in an in-memory copy of the rule: `B-16` stops alerting, but so do `TP-01` and `TP-16`, which are real `;` injections. Nothing else changes. So the tuning is a trade: only do it if the multi-target feature really exists, and cover the loss another way (for example a pattern for `;` followed by a command word, which this corpus does not test).
 
+## Backend conversion (pySigma)
+
+A CI job named `convert` (`.github/workflows/detection-test.yml`, part of the all-tests-passed gate) converts the rule with pySigma for two backends. `tools/convert_check.py` does the work. It **fails on any conversion error** and on a conversion that returns no query. The pinned versions are in `tests/requirements-conversion.txt`, a separate file because the packages do not all work together with the test dependencies (see below).
+
+**What was converted.** Run on 2026-11-22 in the `python:3.12` container (Python 3.12.16) with pySigma 2.1.1:
+
+| Target | Package | Result |
+|---|---|---|
+| `splunk` | `pySigma-backend-splunk` 3.0.1 (`SplunkBackend`) | `cmdi_sigma.yml` converted: 1 query, no error |
+| `microsoft365defender` | `pySigma-backend-microsoft365defender` 0.3.2, which is a renamed stub of `pySigma-backend-kusto` 0.4.5 (`KustoBackend`) | `cmdi_sigma.yml` converted: 1 query, no error |
+
+**The job fails when it should.** The same script, run in the container on deliberately broken input, exited 1 each time: a condition that names a selection that does not exist (`SigmaConditionError`), an unknown value modifier (`SigmaModifierError`), and a folder with no rule files. On the real rule it exited 0.
+
+**What was NOT done, and what is not known.**
+
+- **No pipeline and no field mapping was applied.** Neither backend ships one for the `webserver` log source. Checked in the installed packages: the Splunk pipelines cover the logsource categories `proxy` and `network`, and the Microsoft XDR pipelines cover `network_connection` and `process_creation`. The word `webserver` does not appear in either. It does appear in the `azuremonitor` and `sentinelasim` pipeline packages, which belong to other backends and were not used.
+- **What a deployer must supply.** A mapping from the rule's field names to the field names, index or table that hold their web server logs. The detection uses `cs-uri-stem`, `cs-uri-query` and `c-ip`; the rule's `fields` list adds `cs-method`, `cs-host`, `sc-status` and `cs-user-agent`. Which Splunk fields or index, and whether Microsoft 365 Defender has any table for web server access logs, is the deployer's decision. **No mapping is invented here.**
+- **The converted queries were not run** against Splunk or Microsoft 365 Defender, so they are not known to be valid there. The output passes the hyphenated field names through unmapped (for example `rex field=cs-uri-query "(?<cs-uri-queryMatch>...` for Splunk, and `''cs-uri-stem''` for Kusto). Those look unlikely to run as they are, which is another reason a field mapping is needed. That was not checked.
+- **Why a separate requirements file.** `pySigma-backend-splunk` 3.0.1 requires `pysigma` 2.0.1 or newer and below 3. `pySigma-backend-kusto` 0.4.5 declares `pysigma >=0.10.0`, but its pipeline modules fail to import under pySigma 2.1.1 (`cannot import name 'SigmaTransformationError' from 'sigma.processing.transformations'`), so pySigma's plugin discovery crashes with it installed. The backend class itself imports and converts, and the script applies no pipeline, so the conversion works. Keep `requirements-conversion.txt` in its own environment, not next to `sigma-cli`.
+- **The `convert` job itself has not run on GitHub.** Only the script was run, in the container. The workflow edit is unverified until a run is green.
+
+To reproduce:
+
+```bash
+# verified-locally: 2026-11-22, in the python:3.12 container, in a fresh virtual environment
+python -m pip install -r cwe-078-os-command-injection/tests/requirements-conversion.txt
+python cwe-078-os-command-injection/tools/convert_check.py
+```
+
 ## Scope and limits
 
 - **Synthetic logs.** The corpus proves the rule logic and the three parsers, not detection rates or false-positive volume on live traffic. Measure the latter in your SIEM before raising the rule above `test` status.
-- **Purpose-built evaluator.** `tests/test_rule.py` implements the Sigma subset this rule uses (`contains`, `startswith`, `endswith`, `re`, `cidr`, `all`, and `and`/`or`/`not`/`1 of`/`all of`). Unsupported syntax raises `NotImplementedError`, so rule edits cannot pass silently. It is not a SIEM backend: also convert the rule with `sigma-cli` for your platform and re-run these cases there. Regex dialects differ between backends.
+- **Purpose-built evaluator.** `tests/test_rule.py` implements the Sigma subset this rule uses (`contains`, `startswith`, `endswith`, `re`, `cidr`, `all`, and `and`/`or`/`not`/`1 of`/`all of`). Unsupported syntax raises `NotImplementedError`, so rule edits cannot pass silently. It is not a SIEM backend: also convert the rule with `sigma-cli` for your platform and re-run these cases there. Regex dialects differ between backends. CI converts the rule for two backends without a pipeline, but nothing here runs the converted query (see Backend conversion).
 - **Raw `&&` is a deliberate non-detection** (`B-04`, `B-05`). The server splits it into separate parameters, so it cannot inject. The effective encoded form `%26%26` is detected (`TP-07`).
 - **Documented gaps (`B-08`, `B-09`, `B-10`, `B-11`, `B-15`).** The rule is scoped to paths ending in `/ping` or a parameter named `ping`, so a payload on another path (`/diag`, `/ping.php`) with another parameter name is not detected (`B-08`, `B-15`). Edit the scope lines in the rule if your endpoint differs, then change the expectation in `test_logs.jsonl` together with the rule. Triple-encoded `;` (`B-09`) and the fullwidth semicolon U+FF1B (`B-10`, `B-11`) are not detected either. Each would be a real attack only if something in the application decodes or normalizes the value to `;` first. No case in this corpus does that.
 - **Known false positive (`B-16`).** The rule alerts on a `;`-delimited multi-target ping because `;` is a listed payload character. The corpus has no real endpoint with that feature; `B-16` is a hypothetical, pinned so the rule's `falsepositives` note is backed by a case.

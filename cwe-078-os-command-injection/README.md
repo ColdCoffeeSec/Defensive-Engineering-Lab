@@ -41,4 +41,4 @@ Expected result: `32/32 cases PASS` and `60 passed`.
 
 ## Scope
 
-The rule targets a `/ping` endpoint that takes its input in the query string; adjust the two marked lines in the rule header if yours differs. The test logs are synthetic, so they prove the rule logic rather than live false-positive rates, and POST bodies are not visible in web server access logs. Both limits are documented in [TESTING.md](./TESTING.md).
+The rule targets a `/ping` endpoint that takes its input in the query string; adjust the two marked lines in the rule header if yours differs. The test logs are synthetic, so they prove the rule logic rather than live false-positive rates, and POST bodies are not visible in web server access logs. Both limits are documented in [TESTING.md](./TESTING.md). CI also converts the rule with pySigma for the Splunk and Microsoft 365 Defender backends, without a pipeline or field mapping; the converted queries have not been run against a SIEM (see [Backend conversion](./TESTING.md#backend-conversion-pysigma)).
