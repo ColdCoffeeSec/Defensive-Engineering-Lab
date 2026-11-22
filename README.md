@@ -1,4 +1,4 @@
-[![Detection Tests](https://github.com/ColdCoffeeSec/Defensive-Engineering-Lab/actions/workflows/detection-test.yml/badge.svg)](https://github.com/ColdCoffeeSec/Defensive-Engineering-Lab/actions/workflows/detection-test.yml)
+[![Detection Tests](https://github.com/ColdCoffeeSec/Defensive-Engineering-Lab/actions/workflows/detection-test.yml/badge.svg)](https://github.com/ColdCoffeeSec/Defensive-Engineering-Lab/actions/workflows/detection-test.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 # Detection Engineering Portfolio
 
