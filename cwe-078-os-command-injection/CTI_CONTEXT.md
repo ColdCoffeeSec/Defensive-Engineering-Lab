@@ -4,7 +4,7 @@
 |---|---|
 | **Classification** | TLP:CLEAR (portfolio / lab material) |
 | **Date** | 2026-11-22 |
-| **Author** | [name / team] |
+| **Author** | ColdCoffeeSec |
 | **Weakness** | CWE-78, OS Command Injection |
 | **Primary ATT&CK mapping** | Execution: T1059 (Command and Scripting Interpreter), entered via Initial Access T1190 |
 | **Linked artifacts** | `detection_rules/cmdi_sigma.yml` (rule `2bd67884-7866-4e1d-8b23-b383fa80e288`), `IR_PLAYBOOK.md` |
