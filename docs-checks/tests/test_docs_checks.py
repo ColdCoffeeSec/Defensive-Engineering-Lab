@@ -82,3 +82,30 @@ def test_checks_look_at_something(repo, truth):
 def test_version_strings_are_not_mistaken_for_ip_addresses():
     text = "UA Mozilla/5.0 Chrome/119.0.0.0 Safari/537.36 and Windows-Update-Agent/10.0.10011.16384, address 203.0.113.9."
     assert d._scan_for_indicators("x.md", text) == []
+
+
+# --------------------------------------------------------------------------- the intake check must not be too strict either
+def _rewrite_field(repo, field, value):
+    import re
+    text = repo.text(d.INTAKE_FILE)
+    new, n = re.subn(rf"^(\*\*{field}\. .*?\*\*\s*→\s*).*$", rf"\g<1>{value}", text, count=1, flags=re.M)
+    assert n == 1, field
+    repo.set_text(d.INTAKE_FILE, new)
+
+
+@pytest.mark.parametrize("field", d.INTAKE_FIXED_ANSWERS)
+def test_intake_allows_a_fixed_answer_to_change(repo, field):
+    mutated = repo.copy()
+    _rewrite_field(mutated, field, "a different fixed answer for this repository")
+    assert d.check_intake_file(mutated) == []
+
+
+def test_intake_accepts_placeholders_with_or_without_backticks(repo):
+    plain = repo.copy()
+    plain.set_text(d.INTAKE_FILE, plain.text(d.INTAKE_FILE).replace("`[ADD:", "[ADD:").replace("]`", "]"))
+    assert d.check_intake_file(plain) == []
+
+
+def test_intake_fixed_and_required_lists_do_not_overlap_and_cover_the_expected_fields():
+    assert not set(d.INTAKE_FIXED_ANSWERS) & set(d.INTAKE_REQUIRED)
+    assert "A3" in d.INTAKE_REQUIRED and {"A1", "A2", "A4", "A5", "E1", "E2", "E3", "E4", "G1", "H1", "H2", "H3"} == set(d.INTAKE_FIXED_ANSWERS)

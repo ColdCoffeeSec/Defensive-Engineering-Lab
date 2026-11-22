@@ -155,7 +155,10 @@ MUTATIONS = [
     ("placeholders", "placeholder marker left in an issue template", append(".github/ISSUE_TEMPLATE/config.yml", "# [ADD: x]\n"), "[ADD:"),
     ("intake", "a SIEM filled into field B1", intake_fill("B1", "Splunk 9.1"), "field B1 holds a value"),
     ("intake", "a value filled into field G3", intake_fill("G3", "none"), "field G3 holds a value"),
+    ("intake", "an answer filled into A3 (a placeholder field)", intake_fill("A3", "phishing wave last week"), "field A3 holds a value"),
+    ("intake", "a value in a field outside both lists", append(d.INTAKE_FILE, "\n**D1. Acceptable false positives per day** → 5 per day\n"), "field D1 holds a value"),
     ("intake", "required field deleted", drop_lines(d.INTAKE_FILE, "**E5."), "required field E5 is missing"),
+    ("intake", "required A3 deleted", drop_lines(d.INTAKE_FILE, "**A3."), "required field A3 is missing"),
     ("intake", "rulebook missing from the repository", drop_file(d.INTAKE_FILE), "missing from the repository root"),
 ]
 

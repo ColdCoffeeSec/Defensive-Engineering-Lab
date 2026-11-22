@@ -561,18 +561,31 @@ def check_no_placeholders_in_docs(repo):
 
 
 # ----------------------------------------------------------------------------- 7. intake file
+# Fields about the reader's own environment. They must exist and must keep a placeholder in the repository.
 INTAKE_REQUIRED = (
-    [f"B{i}" for i in range(1, 13)] + [f"C{i}" for i in range(1, 7)] + ["E5", "E6"] + [f"F{i}" for i in range(1, 7)] + ["G2", "G3", "G4"]
+    ["A3"] + [f"B{i}" for i in range(1, 13)] + [f"C{i}" for i in range(1, 7)] + ["E5", "E6"]
+    + [f"F{i}" for i in range(1, 7)] + ["G2", "G3", "G4"]
 )
+# Fixed answers about this repository and module (not about any environment). They may hold a value.
+INTAKE_FIXED_ANSWERS = ["A1", "A2", "A4", "A5", "E1", "E2", "E3", "E4", "G1", "H1", "H2", "H3"]
 INTAKE_FIELD = re.compile(r"^\*\*([A-H]\d+)\. .*?\*\*\s*→\s*(.*)$", re.M)
+# A placeholder, optionally wrapped in backticks (the repository's version wraps them).
+INTAKE_PLACEHOLDER = re.compile(r"`?\[ADD:[^\]]*\]`?")
 
 
 def check_intake_file(repo):
+    """The repository copy of the rulebook must not hold any environment value.
+
+    Required fields (A3, B, C, E5, E6, F, G2 to G4) must be present and still be a placeholder. The fixed answers
+    in INTAKE_FIXED_ANSWERS may hold a value. Any other field must be a placeholder too.
+    """
     if INTAKE_FILE not in repo.files:
         return [f"{INTAKE_FILE}: missing from the repository root"]
     fields = dict(INTAKE_FIELD.findall(repo.text(INTAKE_FILE)))
     problems = [f"{INTAKE_FILE}: required field {f} is missing" for f in INTAKE_REQUIRED if f not in fields]
     for fid, value in sorted(fields.items()):
-        if not re.fullmatch(r"\[ADD:[^\]]*\]", value.strip()):
+        if fid in INTAKE_FIXED_ANSWERS:
+            continue
+        if not INTAKE_PLACEHOLDER.fullmatch(value.strip()):
             problems.append(f"{INTAKE_FILE}: field {fid} holds a value instead of an [ADD: ...] placeholder")
     return problems

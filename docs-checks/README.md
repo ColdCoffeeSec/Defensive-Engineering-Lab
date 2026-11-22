@@ -19,7 +19,7 @@ The checks are pure functions in [`tests/docs_lib.py`](./tests/docs_lib.py). Eac
 | File size | Any file is larger than 1 MiB. |
 | Network indicators | A doc, a fixture, an issue template or `iocs.csv` holds an IP address outside the reserved ranges, or a domain that is not a reserved name or an allow-listed source. Defanged forms (`[.]`, `hxxp`) are normalised first, so a defanged real indicator is still caught. |
 | Placeholders | The intake template's placeholder marker (an opening bracket followed by `ADD` and a colon) appears in a doc other than `SOC_INTAKE_RULEBOOK.md`. |
-| Intake file | `SOC_INTAKE_RULEBOOK.md` is missing, lacks a required field, or any field holds a value instead of a placeholder. |
+| Intake file | `SOC_INTAKE_RULEBOOK.md` is missing, or lacks a required field, or a field about an environment holds a value instead of a placeholder. Required placeholders: A3, B1 to B12, C1 to C6, E5, E6, F1 to F6 and G2 to G4. Allowed fixed answers: A1, A2, A4, A5, E1 to E4, G1 and H1 to H3. Any other field must be a placeholder. Placeholders may be wrapped in backticks. |
 
 ## Every check can fail
 
