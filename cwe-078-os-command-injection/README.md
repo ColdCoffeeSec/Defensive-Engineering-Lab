@@ -35,7 +35,7 @@ Expected result: `32/32 cases PASS` and `61 passed`.
 | Threat intel | [CTI_CONTEXT.md](./CTI_CONTEXT.md) | ATT&CK mapping (T1190, T1059), real-world cases, Diamond Model |
 | Sigma rule | [detection_rules/cmdi_sigma.yml](./detection_rules/cmdi_sigma.yml) | Detection for Nginx, Apache and IIS web server logs |
 | Test coverage | [TESTING.md](./TESTING.md) | Coverage matrix: true positives, evasion, benign traffic, known gap |
-| Test corpus | [tests/test_logs.jsonl](./tests/test_logs.jsonl) | 24 labelled raw log lines in three formats |
+| Test corpus | [tests/test_logs.jsonl](./tests/test_logs.jsonl) | 32 labelled raw log lines in three formats |
 | Test runner | [tests/test_rule.py](./tests/test_rule.py) | pytest suite evaluating the rule against the corpus |
 | IR playbook | [IR_PLAYBOOK.md](./IR_PLAYBOOK.md) | Tier 1 triage decision tree, log sources, escalation criteria |
 
