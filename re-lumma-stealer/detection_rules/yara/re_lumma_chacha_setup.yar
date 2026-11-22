@@ -31,7 +31,7 @@ rule RE_Lumma_ChaCha_WinHttp_Cooccurrence
 {
     meta:
         description = "ChaCha20 constant with WinHTTP strings, a weak hunting hint for Lumma-style context setup (low confidence)"
-        author = "[your name / team]"
+        author = "ColdCoffeeSec"
         date = "2026-11-22"
         status = "experimental"
         basis = "analyst-derived; idea from Elastic Security Labs 2025-10-14"
