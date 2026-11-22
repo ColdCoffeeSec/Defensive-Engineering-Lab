@@ -22,11 +22,11 @@ Run these from the repository root.
 ```bash
 # verified
 python -m pip install -r cwe-078-os-command-injection/tests/requirements.txt    # pytest, PyYAML
-python -m pytest cwe-078-os-command-injection/tests/                            # all 24 cases plus coverage checks
+python -m pytest cwe-078-os-command-injection/tests/                            # all 31 cases plus coverage checks
 python -m pytest cwe-078-os-command-injection/tests/ -k TP-07                   # a single case
 ```
 
-Expected result: `24/24 cases PASS` and `40 passed`.
+Expected result: `31/31 cases PASS` and `56 passed`.
 
 ## What's in this module
 

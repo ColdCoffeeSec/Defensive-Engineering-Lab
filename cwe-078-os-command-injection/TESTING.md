@@ -4,7 +4,7 @@
 
 
 **Rule under test:** `detection_rules/cmdi_sigma.yml` (id `2bd67884-7866-4e1d-8b23-b383fa80e288`, level high)
-**Corpus:** `tests/test_logs.jsonl`: 24 cases (16 true positives, 8 benign) in three real log formats
+**Corpus:** `tests/test_logs.jsonl`: 31 cases (16 true positives, 15 benign) in three log formats
 **Runner:** `tests/test_rule.py` (pytest), executed on every push by `.github/workflows/detection-test.yml`
 
 Each case is a **raw log line**. The suite parses it with a format-specific parser, checks the extracted fields against the case, then evaluates the rule's YAML and compares the verdict with the expected one. The corpus uses documentation IP ranges (RFC 5737) only.
@@ -23,17 +23,19 @@ Each case is a **raw log line**. The suite parses it with a format-specific pars
 | **Benign:** raw unencoded `&&` | `B-04`, `B-05` | The server splits it into harmless separate parameters; it cannot inject and is not alerted on. |
 | **Benign:** authorized scanner range `192.0.2.0/24` | `B-06` | A real payload from the allow-listed range is filtered. |
 | **Benign:** unrelated endpoint | `B-07` | `/shipping` merely ends in the letters "ping"; no alert. |
-| **Documented gap** | `B-08` | A real payload on another path with another parameter name is *not* detected. Pinned so the gap stays visible. |
+| **Documented gap:** encoding and normalization | `B-09`, `B-10`, `B-11` | Triple-encoded `;` (`%25253b`) and the fullwidth semicolon U+FF1B (literal, and as `%EF%BC%9B`) are not detected. Each is a real attack only if something decodes or normalizes the value to `;` before it reaches a shell. |
+| **Documented gap:** endpoint scope | `B-08`, `B-15` | A real payload on another path (`/diag`, `/ping.php`) with another parameter name is *not* detected. If your endpoint is on such a path, change the scope lines in the rule. |
+| **Probe, not an evasion** | `B-12`, `B-13`, `B-14` | `%c0%af` (overlong UTF-8 `/`), tab (`%09`) and NUL (`%00`) are not shell command separators for this endpoint, so a miss is not a bypass. Kept as probes so the blind-spot analysis is on record. |
 
 ### Log format coverage
 
 | Format | Cases | IDs |
 |---|---|---|
-| Nginx `combined` | 10 | `TP-01`, `TP-03`, `TP-06`, `TP-09`, `TP-12`, `TP-14`, `TP-16`, `B-01`, `B-04`, `B-06` |
-| Apache `vhost_combined` | 8 | `TP-02`, `TP-04`, `TP-07`, `TP-10`, `TP-13`, `B-02`, `B-05`, `B-08` |
-| IIS W3C extended | 6 | `TP-05`, `TP-08`, `TP-11`, `TP-15`, `B-03`, `B-07` |
+| Nginx `combined` | 13 | `TP-01`, `TP-03`, `TP-06`, `TP-09`, `TP-12`, `TP-14`, `TP-16`, `B-01`, `B-04`, `B-06`, `B-09`, `B-12`, `B-15` |
+| Apache `vhost_combined` | 10 | `TP-02`, `TP-04`, `TP-07`, `TP-10`, `TP-13`, `B-02`, `B-05`, `B-08`, `B-10`, `B-13` |
+| IIS W3C extended | 8 | `TP-05`, `TP-08`, `TP-11`, `TP-15`, `B-03`, `B-07`, `B-11`, `B-14` |
 
-## All 24 cases
+## All 31 cases
 
 | ID | Format | Source IP | Path | Query as logged | Expected | Why |
 |---|---|---|---|---|---|---|
@@ -61,6 +63,13 @@ Each case is a **raw log line**. The suite parses it with a format-specific pars
 | `B-06` | Nginx `combined` | `192.0.2.10` | `/ping` | `host=8.8.8.8;id` | no alert | Real payload from the authorized scanner range 192.0.2.0/24 is filtered |
 | `B-07` | IIS W3C extended | `203.0.113.230` | `/shipping` | `x=a;b` | no alert | '/shipping' ends in the letters 'ping' but is not the endpoint; no ping parameter |
 | `B-08` | Apache `vhost_combined` | `203.0.113.240` | `/diag` | `host=1.1.1.1;id` | no alert | DOCUMENTED GAP: real payload, but neither path /ping nor a parameter named ping, so the rule does not fire (see TESTING.md) |
+| `B-09` | Nginx `combined` | `198.51.100.90` | `/ping` | `host=1.1.1.1%25253bid` | no alert | DOCUMENTED GAP: triple-encoded ';'. The rule lists single and double encodings only. A real attack only if the value is decoded three times before a shell |
+| `B-10` | Apache `vhost_combined` | `203.0.113.61` | `/ping` | `host=1.1.1.1；id` | no alert | DOCUMENTED GAP: fullwidth semicolon U+FF1B as the character itself. A real attack only if the application normalizes it to ';' (for example NFKC) before building the command |
+| `B-11` | IIS W3C extended | `203.0.113.62` | `/ping` | `host=1.1.1.1%EF%BC%9Bid` | no alert | DOCUMENTED GAP: U+FF1B as percent-encoded UTF-8. A real attack only if it is decoded and then normalized to ';' |
+| `B-12` | Nginx `combined` | `198.51.100.91` | `/ping` | `host=1.1.1.1%c0%afid` | no alert | PROBE, NOT AN EVASION: `%c0%af` is an overlong UTF-8 encoding of '/', not a command separator |
+| `B-13` | Apache `vhost_combined` | `203.0.113.63` | `/ping` | `host=1.1.1.1%09id` | no alert | PROBE, NOT AN EVASION: a tab separates arguments in a shell, so 'id' would be an extra argument to ping, not a second command |
+| `B-14` | IIS W3C extended | `203.0.113.64` | `/ping` | `host=1.1.1.1%00id` | no alert | PROBE, NOT AN EVASION: NUL is not a command separator; where strings end at NUL, the text after it is cut off |
+| `B-15` | Nginx `combined` | `198.51.100.92` | `/ping.php` | `host=1.1.1.1;id` | no alert | DOCUMENTED GAP: endpoint scope is `/ping` only. If the vulnerable endpoint is `/ping.php` this IS a real attack and the scope lines must change |
 
 ## Run locally
 
@@ -69,20 +78,20 @@ python -m pip install -r tests/requirements.txt    # pytest, PyYAML
 pytest tests/
 ```
 
-`pytest tests/` prints PASS/FAIL per case (`-v` is set in `pytest.ini`) and ends with a matrix of all 24 cases. Run one case with `pytest tests/ -k TP-07`.
+`pytest tests/` prints PASS/FAIL per case (`-v` is set in `pytest.ini`) and ends with a matrix of all 31 cases. Run one case with `pytest tests/ -k TP-07`.
 
 ### Latest result
 
-Run on 2026-11-22 (Python 3.13, pytest 9.1.1). The 24 case tests and 16 coverage and integrity checks all pass (excerpt):
+Run on 2026-11-22 in the `python:3.12` container (Python 3.12.16, pytest 9.2.0), from the repository root. The 31 case tests and 25 coverage, integrity and sensitivity checks all pass (excerpt):
 
 ```text
-tests/test_rule.py::test_case[TP-01] PASSED
-tests/test_rule.py::test_case[TP-02] PASSED
+cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-01] PASSED [ 16%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-02] PASSED [ 17%]
 ...
-tests/test_rule.py::test_case[B-08] PASSED
+cwe-078-os-command-injection/tests/test_rule.py::test_case[B-15] PASSED  [ 69%]
 ...
-24/24 cases PASS
-============================== 40 passed in 0.07s ==============================
+31/31 cases PASS
+============================== 56 passed in 0.30s ==============================
 ```
 
 ### Can these tests actually fail?
@@ -98,16 +107,31 @@ Yes. To check, the rule was deliberately broken in six ways on a throwaway copy;
 | Point the scanner CIDR at the wrong range | `B-06` |
 | Drop `%7c` from the encoded list | `TP-06` |
 
+### Do the gap cases exercise what they claim?
+
+Yes. `tests/test_gap_cases.py` adds the missing pattern to an **in-memory copy** of the rule and checks that exactly one case changes verdict. The rule file on disk is not changed, and the gap cases stay `no alert` in the corpus. This is a check on the cases, not a recommendation to close the gaps. For the probes that are not command separators (`B-12`, `B-13`, `B-14`) there is nothing to close.
+
+| Pattern added to the copy | Only case that turns ALERT |
+|---|---|
+| `%25253b` in the double-encoded list | `B-09` |
+| the character U+FF1B in the raw list | `B-10` |
+| `%ef%bc%9b` in the encoded list | `B-11` |
+| `%c0%af` in the encoded list | `B-12` |
+| `%09` in the encoded list | `B-13` |
+| `%00` in the encoded list | `B-14` |
+| `/ping.php` in the endpoint list | `B-15` |
+
 ## Scope and limits
 
 - **Synthetic logs.** The corpus proves the rule logic and the three parsers, not detection rates or false-positive volume on live traffic. Measure the latter in your SIEM before raising the rule above `test` status.
 - **Purpose-built evaluator.** `tests/test_rule.py` implements the Sigma subset this rule uses (`contains`, `startswith`, `endswith`, `re`, `cidr`, `all`, and `and`/`or`/`not`/`1 of`/`all of`). Unsupported syntax raises `NotImplementedError`, so rule edits cannot pass silently. It is not a SIEM backend: also convert the rule with `sigma-cli` for your platform and re-run these cases there. Regex dialects differ between backends.
 - **Raw `&&` is a deliberate non-detection** (`B-04`, `B-05`). The server splits it into separate parameters, so it cannot inject. The effective encoded form `%26%26` is detected (`TP-07`).
-- **Documented gap (`B-08`).** The rule is scoped to the `/ping` path or a parameter named `ping`. A payload on another path with another parameter name is not detected. Edit the scope lines in the rule if your endpoint differs, then change the expectation in `test_logs.jsonl` together with the rule.
+- **Documented gaps (`B-08`, `B-09`, `B-10`, `B-11`, `B-15`).** The rule is scoped to paths ending in `/ping` or a parameter named `ping`, so a payload on another path (`/diag`, `/ping.php`) with another parameter name is not detected (`B-08`, `B-15`). Edit the scope lines in the rule if your endpoint differs, then change the expectation in `test_logs.jsonl` together with the rule. Triple-encoded `;` (`B-09`) and the fullwidth semicolon U+FF1B (`B-10`, `B-11`) are not detected either. Each would be a real attack only if something in the application decodes or normalizes the value to `;` first. No case in this corpus does that.
+- **Probes that are not evasions (`B-12`, `B-13`, `B-14`).** `%c0%af`, a tab (`%09`) and a NUL byte (`%00`) are not shell command separators for this endpoint, so the rule missing them is not a bypass. They are kept so the blind-spot analysis is on record. Their descriptions state how each behaves; that was reasoned about, not tested against a real endpoint.
 - **POST bodies, cookies and headers are not in access logs**, so they cannot be tested here. See the rule header and `CTI_CONTEXT.md`.
 
 ## Adding a case
 
 1. Append one JSON line to `tests/test_logs.jsonl` with the same keys as its neighbours: a real-format `raw` line, the `expected_fields` it should parse to, and `expected_detected`. IIS cases also carry `iis_fields` (the `#Fields:` header).
 2. Add the `id` (in backticks) to the table above. A test fails if any case is missing from this file.
-3. Update the case count in `test_corpus_has_24_unique_cases`, then run `pytest tests/`.
+3. Update `EXPECTED_CASES` in `tests/test_rule.py`, and the case and test counts quoted in this file and in the README, then run `pytest tests/`. The `docs-checks` suite fails if a quoted count drifts.
