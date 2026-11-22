@@ -88,6 +88,16 @@ What each reported behaviour would look like in the reference environment, and w
 | Registry or sandbox checks, debugger checks, AMSI string patching | **[V: MITRE]** | None assumed | **No.** Documented gap. |
 | Staging under `%USERPROFILE%\AppData\Roaming` | **[V: MITRE]** | Sysmon 11 `[ASSUMED]` | **Not claimed.** Too generic to be a rule on its own. **[A]** |
 
+### 4.1 Rule coverage decisions (step 3)
+
+| Rule | Decision | Why |
+|---|---|---|
+| 001 ClickFix user PowerShell / mshta | Written. Sysmon 1 only. | Telemetry is in the reference environment. Patterns are **[A]**. |
+| 002 Non-browser credential-store read | Written as a **conditional** rule. It cannot fire in the reference environment. | Needs 4663 + SACL, which `ENVIRONMENT_ASSUMPTIONS.md` section 1 says is not enabled. Path list, audited access types and browser allow-list are not in that file, so they are **[A]**. Decision by the repo owner, 2026-11-22. |
+| 003 C2 POST from a non-browser | **Not written.** Documented gap. | No source published a Lumma C2 User-Agent **[V: absent]**. The reference environment has no baseline of legitimate POSTs, and proxy logs do not carry the process name. Values that would be needed in `ENVIRONMENT_ASSUMPTIONS.md`: an expected User-Agent list or a local POST baseline, and a process-to-connection join. Decision by the repo owner, 2026-11-22. |
+
+No mutation is planned for rule 003 (M-plan is rules 001 and 002, the YARA rules and the extractor).
+
 ## 5. Questions an analyst with sample access and authority could answer
 
 These are **not** done here. They are listed so the limits are visible.
