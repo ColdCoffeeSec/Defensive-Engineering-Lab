@@ -34,7 +34,7 @@ references:
     - https://attack.mitre.org/techniques/T1190/
     - https://attack.mitre.org/techniques/T1059/
     - https://owasp.org/www-community/attacks/Command_Injection
-author: '[your name / team]'
+author: 'ColdCoffeeSec'
 date: 2026-11-22
 modified: 2026-11-22
 tags:
