@@ -1,0 +1,66 @@
+name: False-positive report
+description: A rule in this repository alerted on benign activity. Redact real data first.
+title: "False positive: <rule id or name>"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Redact before you post.** Remove real hostnames, IP addresses, user names, domain names, file paths that identify a person or company, and any customer data. Replace them with synthetic values: RFC 5737 addresses such as `192.0.2.10`, and names under `.example`. Do not attach logs, samples or files. Do not paste secrets or keys.
+
+        Rules here are reference implementations tested on synthetic data. A real false positive is exactly the evidence that helps tune them.
+  - type: input
+    id: rule_id
+    attributes:
+      label: Rule id or name
+      description: The `id` of the Sigma rule (a UUID), or the name of the YARA rule.
+    validations:
+      required: true
+  - type: input
+    id: module
+    attributes:
+      label: Module folder
+      description: For example the folder the rule lives in.
+    validations:
+      required: true
+  - type: dropdown
+    id: log_source
+    attributes:
+      label: Log source
+      options:
+        - Sysmon process creation (event 1)
+        - Windows Security 4663
+        - Proxy logs
+        - Web server access logs
+        - File or memory scan (YARA)
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: redacted_event
+    attributes:
+      label: Redacted event
+      description: The event or record that matched, with real data replaced by synthetic values. Show the fields the rule reads.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: what_was_benign
+    attributes:
+      label: What was benign, and how you know
+      description: What the activity really was (for example a named backup product or an admin task) and how you confirmed it.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Your telemetry and backend (optional)
+      description: Which log source and field names you mapped, and which SIEM backend you converted the rule for. Leave out anything identifying.
+    validations:
+      required: false
+  - type: checkboxes
+    id: redaction_confirmed
+    attributes:
+      label: Confirmation
+      options:
+        - label: I removed or replaced all real hostnames, IP addresses, user names and customer data, and I attached no logs, samples or secrets.
+          required: true
