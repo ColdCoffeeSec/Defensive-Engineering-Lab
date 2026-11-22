@@ -6,7 +6,7 @@ This module is a reverse-engineering style detection package for the Lumma Steal
 
 ## Status
 
-Quoted from [TESTING.md](./TESTING.md): the Sigma rules, YARA rules, config extractor and mutation tests were all run in the official `python:3.12` container, and 175 tests passed. The baseline and real-data measurements have not been run, and no metric targets are set. Read [section 2 of TESTING.md](./TESTING.md#2-what-the-tests-do-and-do-not-show) before relying on any result.
+Quoted from [TESTING.md](./TESTING.md): the Sigma rules, YARA rules, config extractor and mutation tests were all run in the official `python:3.12` container, and 187 tests passed. The baseline and real-data measurements have not been run, and no metric targets are set. Read [section 2 of TESTING.md](./TESTING.md#2-what-the-tests-do-and-do-not-show) before relying on any result.
 
 ## Confidence of each rule
 
@@ -103,7 +103,7 @@ Taken from the rule headers and `ENVIRONMENT_ASSUMPTIONS.md`. Compare it with yo
 
 Quoted from [TESTING.md, section 8](./TESTING.md#8-known-limits):
 
-- Rule 001 misses PowerShell started through `cmd.exe`, renamed copies, string-assembled cradles and truncated command lines.
+- Rule 001 misses PowerShell started through `cmd.exe`, renamed copies, string-assembled cradles and truncated command lines. It also misses a double-quoted Base64 value and a value broken by a line break after fewer than 16 characters; whether PowerShell accepts those two forms is not tested ([TESTING.md, section 3.1](./TESTING.md#31-probe-cases-forms-of-the-base64-argument-r1-x01-to-r1-x06)).
 - Rule 002 misses injection into a browser process, path-suffix spoofing, and browsers whose profile is not under `User Data`, such as Opera.
 - Process hollowing, in-memory loading and C2 content need telemetry the reference environment does not assume.
 - The YARA rules use published strings only. The setup rule may miss the family it names, and it will match benign programs that use ChaCha20 and WinHTTP.

