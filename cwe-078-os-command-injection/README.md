@@ -26,7 +26,7 @@ python -m pytest cwe-078-os-command-injection/tests/                            
 python -m pytest cwe-078-os-command-injection/tests/ -k TP-07                   # a single case
 ```
 
-Expected result: `32/32 cases PASS` and `60 passed`.
+Expected result: `32/32 cases PASS` and `61 passed`.
 
 ## What's in this module
 

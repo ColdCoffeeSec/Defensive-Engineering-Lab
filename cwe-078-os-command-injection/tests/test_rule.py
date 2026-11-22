@@ -281,6 +281,17 @@ def test_known_false_positive_cases_alert_and_say_how_to_tune():
         assert "removes" in c["description"] and "cost" in c["description"], f"{c['id']} must say how to tune and what it costs"
 
 
+def test_rule_header_points_to_every_gap_and_false_positive_case_and_labels_the_placeholder():
+    """The header must name every documented-gap and known-false-positive case, so it cannot drift from the corpus."""
+    text = RULE_PATH.read_text(encoding="utf-8")
+    header = text[:text.index("\ntitle:")]
+    ids = [c["id"] for c in CASES if c["category"] in ("documented_gap", "known_fp_needs_tuning")]
+    missing = [i for i in ids if i not in header]
+    assert not missing, f"rule header does not mention: {missing}"
+    assert "KNOWN COVERAGE GAPS" in header and "KNOWN FALSE POSITIVE" in header
+    assert "PLACEHOLDER: 192.0.2.0/24 is RFC 5737 TEST-NET-1" in text, "the scanner range must stay a labelled placeholder"
+
+
 def test_all_three_log_formats_are_exercised():
     assert {c["log_format"] for c in CASES} == REQUIRED_FORMATS
 
