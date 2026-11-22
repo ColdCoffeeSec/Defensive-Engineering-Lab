@@ -11,7 +11,7 @@ This repository holds detection-engineering modules. Each module pairs threat co
 | Module | Type | Rules included | Test status | Confidence | Limits |
 |---|---|---|---|---|---|
 | [`cwe-078-os-command-injection`](./cwe-078-os-command-injection/) | Weakness (CWE-78), web server logs | 1 Sigma rule | 61 passed, per its [latest result](./cwe-078-os-command-injection/TESTING.md#latest-result). Synthetic log corpus only. | Rule `status: test`, level high | [Scope and limits](./cwe-078-os-command-injection/TESTING.md#scope-and-limits): synthetic logs, a purpose-built evaluator that is not a SIEM backend, documented gaps and probes, POST bodies not visible in access logs, backend conversion checked in CI with no field mapping and never run on a SIEM |
-| [`re-lumma-stealer`](./re-lumma-stealer/) | Reverse engineering (Lumma Stealer infostealer), endpoint, proxy and file telemetry | 3 Sigma rules, 2 YARA rules | 175 passed in the `python:3.12` container, per [TESTING.md](./re-lumma-stealer/TESTING.md). Baseline and real-data runs **not yet run**. | Rule 001 level medium; rule 002 level medium and **cannot fire** in the reference environment; rule 003 **low confidence**; both YARA rules **low confidence**; all `experimental` | [Known limits](./re-lumma-stealer/TESTING.md#8-known-limits): published-string YARA patterns never run on a real sample, no baseline, no SIEM backend conversion tested, several behaviours not covered |
+| [`re-lumma-stealer`](./re-lumma-stealer/) | Reverse engineering (Lumma Stealer infostealer), endpoint, proxy and file telemetry | 3 Sigma rules, 2 YARA rules | 187 passed in the `python:3.12` container, per [TESTING.md](./re-lumma-stealer/TESTING.md). Baseline and real-data runs **not yet run**. | Rule 001 level medium; rule 002 level medium and **cannot fire** in the reference environment; rule 003 **low confidence**; both YARA rules **low confidence**; all `experimental` | [Known limits](./re-lumma-stealer/TESTING.md#8-known-limits): published-string YARA patterns never run on a real sample, no baseline, no SIEM backend conversion tested, several behaviours not covered |
 
 Folder prefixes and the rule for adding a module are in [CONTRIBUTING.md](./CONTRIBUTING.md).
 
@@ -65,7 +65,7 @@ python -m pytest docs-checks/tests -q
 .
 ├── .github/
 │   ├── ISSUE_TEMPLATE/              # false-positive report, new-module request
-│   └── workflows/detection-test.yml # CI: discovers modules, runs pytest on Python 3.12, converts the cwe-078 rule for two backends
+│   └── workflows/detection-test.yml # CI: discovers modules, runs pytest on Python 3.12, converts the cwe-078 and re-lumma-stealer rules for two backends
 ├── cwe-078-os-command-injection/    # module
 ├── re-lumma-stealer/                # module
 ├── docs-checks/                     # tests that check the documentation, not a module

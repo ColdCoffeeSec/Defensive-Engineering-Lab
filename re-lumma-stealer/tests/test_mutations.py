@@ -55,7 +55,10 @@ def test_m1_drop_encoded_variant_from_rule_001():
     red = red_cases(text, "rule001_cases.jsonl")
     named = {"R1-P01", "R1-P02", "R1-P03", "R1-P04", "R1-P05", "R1-P06"}  # every Base64 positive
     assert named <= red
-    assert red == named
+    # The four PROBE cases that the rule alerts on (extra whitespace, a tab, a line break before the value, a value split
+    # after 40 characters) alert through the same Base64 pattern, so they turn red too. The two PROBE misses stay quiet.
+    probes_that_alert = {"R1-X02", "R1-X03", "R1-X05", "R1-X06"}
+    assert red == named | probes_that_alert
 
 
 def test_m2_remove_parent_filter_from_rule_001():

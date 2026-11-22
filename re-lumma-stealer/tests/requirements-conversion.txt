@@ -1,0 +1,14 @@
+# Backend conversion check (tools/convert_check.py), run by the "convert-re-lumma" job in .github/workflows/detection-test.yml.
+# Kept apart from requirements.txt on purpose: install it in its OWN environment. Same pins as the cwe-078 module.
+#   * pySigma-backend-splunk 3.0.1 requires pysigma >=2.0.1,<3.
+#   * pySigma-backend-kusto 0.4.5 declares pysigma >=0.10.0, but its pipeline modules (microsoftxdr, microsoft365defender,
+#     azuremonitor, sentinelasim) fail to import under pySigma 2.1.1 ("cannot import name 'SigmaTransformationError' from
+#     'sigma.processing.transformations'"). The backend class itself imports and converts. So NO Kusto pipeline can be
+#     applied in this environment, and convert_check.py applies none. Installing this file next to sigma-cli is NOT
+#     recommended: plugin discovery imports every pipeline and can fail.
+#   * pySigma-backend-microsoft365defender 0.3.2 is a renamed stub ("Install pySigma-backend-kusto instead"). It only
+#     registers the "microsoft365defender" target, which resolves to the Kusto backend, so both are pinned.
+pysigma==2.1.1
+pysigma-backend-splunk==3.0.1
+pysigma-backend-kusto==0.4.5
+pysigma-backend-microsoft365defender==0.3.2
