@@ -49,9 +49,10 @@ def test_yara_python_version_matches_pin(record_property):
 
 
 @pytest.mark.parametrize("path", [CONFIG_RULE, SETUP_RULE], ids=lambda p: p.name)
-def test_rule_file_compiles_and_declares_its_basis(path):
+def test_rule_file_compiles_without_warnings_and_declares_its_basis(path):
     text = path.read_text(encoding="utf-8")
-    compile_text(text)
+    # error_on_warning makes YARA reject conditions it can prove are always false (for example "4 of" three strings).
+    yara.compile(source=text, error_on_warning=True)
     assert 'basis = "analyst-derived' in text
     assert 'confidence = "low"' in text
     assert "[A]" in text

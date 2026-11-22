@@ -1,43 +1,46 @@
 # Testing: re-lumma-stealer
 
-**Last updated:** 2026-11-22. **Overall status: roadmap steps 6 and 7 are NOT complete.** The YARA rules have not been compiled or tested, because `yara-python` could not be installed on the machine used (see section 1). Nothing below claims a YARA rule works.
+**Last updated:** 2026-11-22. **Status:** the Sigma rules, YARA rules, config extractor and mutation tests were all run in the official `python:3.12` container on Python 3.12, the version CI uses. Result: 156 passed in 1.21s. **The baseline and real-data measurements have not been run (section 6), no metric targets are set, and the CI step has not been started.**
 
-Tags follow `CTI_CONTEXT.md`: **[V]** verified by a run shown below, **[A]** analyst-derived, **[ASSUMED]** from `ENVIRONMENT_ASSUMPTIONS.md`.
+Tags follow `CTI_CONTEXT.md`: **[V]** verified by a run shown below, **[A]** analyst-derived, **[U]** unverified, **[ASSUMED]** from `ENVIRONMENT_ASSUMPTIONS.md`.
 
 ## 0. Roadmap status
 
 | Step | Pass condition | Status |
 |---|---|---|
-| 2. CTI_CONTEXT.md, ANALYSIS.md | Every claim tagged V or U. Hash only for samples. | Written. Claims tagged. No pytest applies. |
-| 3. Sigma rules | Each rule has `falsepositives` and a source-limits note. | Rules 001 and 002 written, parse in pySigma, and pass their cases (section 4). **Rule 003 deliberately not written** (decision by the repo owner; see `ANALYSIS.md` section 4.1). |
-| 4. YARA rules | Own patterns from own analysis. | **Written, NOT compiled, NOT tested.** No own analysis exists (no samples, `ENVIRONMENT_ASSUMPTIONS.md` section 3), so the patterns are published strings, tagged low-confidence **[A]**. |
-| 5. IR_PLAYBOOK.md, iocs.csv | All indicators defanged. | Written. 9 hashes plus 2 synthetic defanged rows. Playbook is **unreviewed**. |
-| 6. Fixtures and pytest suite | Suite runs, ChaCha20 round trip passes. | **Partly met.** Sigma and extractor suites pass (127 tests). YARA suite **has not run**. |
-| 7. Mutation run | Every break turns its named cases red. | **Partly met.** M1 to M4 caught. **M5 and M6 have not run** (need yara-python). |
-| 8. TESTING.md with baseline | Baseline recorded. | This file. **Baseline not yet run** (section 6). |
-| 9. CI change | Not started. Waiting for confirmation of earlier steps. | Not done. |
+| 2. CTI_CONTEXT.md, ANALYSIS.md | Every claim tagged V or U. Hash only for samples. | Written. Claims re-checked on 2026-11-22 against raw downloaded pages. No pytest applies. |
+| 3. Sigma rules | Each rule has `falsepositives` and a source-limits note. | Done. Rules 001 and 002 pass their cases (section 9). Rule 003 deliberately not written; the premise for that decision was corrected (section 8). |
+| 4. YARA rules | Rules compile and match their fixtures. | Done for what was claimed: both rules compile with **no warnings** under `error_on_warning=True` and match their synthetic fixtures. The patterns are published strings, low confidence **[A]**, never run on a real sample. |
+| 5. IR_PLAYBOOK.md, iocs.csv | All indicators defanged. | Done. Playbook is **unreviewed**. 9 hashes matched exactly against the CISA page. |
+| 6. Fixtures and pytest suite | Suite runs, ChaCha20 round trip passes. | Done. Full suite passes in the container (section 9). |
+| 7. Mutation run | Every break turns its named cases red. | Done. M1 to M6 each turn exactly the expected cases red (section 5). |
+| 8. TESTING.md with baseline | Baseline recorded. | This file. **Baseline not run** (section 6). |
+| 9. CI change | Not started. | Not done. Waiting for confirmation. |
 
 ## 1. Environment of the runs below
 
 | Item | Value |
 |---|---|
-| Python | 3.14.4 (Windows 11). CI uses Python 3.12. |
-| pySigma | 2.1.1 (pinned in `tests/requirements.txt`, asserted by a test) |
-| PyYAML | 6.0.4 |
-| cryptography | 50.0.2 |
-| pytest | 9.2.0 |
-| yara-python | NOT INSTALLED (no Windows wheel for Python 3.14) |
+| Image tag | `python:3.12` |
+| Image digest | `python@sha256:5411fa1b302c43f510324381162b5f5d0d93b9ee2af538f09d944f0d290ee3cb` |
+| Image created | 2026-11-05T09:40:41.434673518Z |
+| Python in image | 3.12.16 (see output in section 9) |
+| Container runtime | Docker Desktop, client 29.9.3, server 29.9.3, Linux engine, `linux/amd64` |
+| Repo mount | `re-lumma-stealer/` mounted **read-only** at `/work`; `PYTHONDONTWRITEBYTECODE=1`, so the run cannot change the repo |
+| Dependencies | installed in the container with `pip install -r tests/requirements.txt`; versions are printed in section 9 and match the pins |
+| Network | the container had network access for `pip install` only; tests make no network calls |
 
-`yara-python` 4.5.4 has no Windows wheel for Python 3.14, and no C++ build toolchain is installed, so it could not be built locally. The YARA tests (`tests/test_yara_rules.py`) and mutations M5 and M6 need Python 3.12 (a container or CI). Docker Desktop was installed but its daemon was not running during this work. **Run section 7's commands on Python 3.12 and replace the "not run" entries before relying on any YARA result.**
+An earlier run on Windows with Python 3.14 covered only the Sigma, extractor and M1 to M4 tests, because `yara-python` has no wheel for 3.14. It is superseded by the container run and its output is not reproduced here. Python 3.14 is not a supported target for the YARA tests.
 
 ## 2. What the tests do and do not show
 
 - Sigma rules are evaluated by `tests/sigma_eval.py`, a small Sigma subset that raises on any syntax it does not know. Each rule is also parsed by pySigma. **No pySigma backend conversion was tested**, because no SIEM or backend is assumed (`ENVIRONMENT_ASSUMPTIONS.md` section 1).
-- Cases are synthetic Windows event XML in the shape Windows writes for Sysmon 1 and Security 4663. No real log is used.
+- Cases are synthetic Windows event XML in the shape Windows writes for Sysmon 1 and Security 4663. YARA fixtures are synthetic filler bytes with the rules' own strings dropped in. No real log or sample is used.
 - A pass shows the rule logic matches the labelled cases. **It is not a detection rate or a false-positive rate.**
 - Rule 002 needs a 4663 SACL that the reference environment does not enable. Its cases prove logic only. **In the reference environment the rule cannot fire.**
-- The config extractor parses **our own** blob schema (`ANALYSIS.md` section 3.3). The round trip shows the parser matches that schema. It says nothing about real Lumma configs. Only the sizes of magic (16), key (32) and nonce (8) are published **[V: eSentire]**.
-- The ChaCha20 call is checked against a zero-key, zero-nonce keystream vector (`test_cipher_known_answer_zero_key`). That test passed in the run below **[V]**. The vector's attribution to a published test-vector set is **not** verified from a fetched source **[U]**; the test only shows the cryptography library produces that value.
+- The YARA rules were written from published strings, not from sample analysis. They are low confidence. They may miss the family they name and will match benign software. A fixture pass says nothing about either.
+- The config extractor parses **our own** blob schema (`ANALYSIS.md` section 3.3). The round trip shows the parser matches that schema. It says nothing about real Lumma configs.
+- The ChaCha20 call is checked against a zero-key, zero-nonce keystream vector (`test_cipher_known_answer_zero_key`). That test passed **[V]**. The vector's attribution to a published test-vector set is not verified from a fetched source **[U]**; the test only shows the cryptography library produces that value.
 
 ## 3. Coverage matrix: rule 001 (ClickFix PowerShell / mshta)
 
@@ -71,9 +74,9 @@ Case counts by category: benign-near-miss: 10, clickfix-cradle: 2, clickfix-enco
 | R1-G04 | documented-gap | T1204 / T1059.001 | no alert | Truncated command line: Base64 cut below the 16-character floor |
 | R1-G05 | documented-gap | T1204 / T1059.001 | no alert | Cradle assembled from string pieces defeats keyword matching |
 
-## 4. Coverage matrix: rule 002 (non-browser credential-store read, conditional)
+## 4. Coverage matrix: rule 002 (non-browser credential-store read, conditional) and YARA fixtures
 
-Case counts by category: benign-near-miss: 10, browser-store-read: 9, documented-gap: 3, known-fp-needs-tuning: 1. Total 23.
+Rule 002 case counts by category: benign-near-miss: 10, browser-store-read: 9, documented-gap: 3, known-fp-needs-tuning: 1. Total 23.
 
 | ID | Category | Technique | Expected | Description |
 |---|---|---|---|---|
@@ -103,9 +106,32 @@ Case counts by category: benign-near-miss: 10, browser-store-read: 9, documented
 
 Benign corpus: a seeded generator (`tests/fixtures/gen_benign.py`, seed 1337) builds 300 rule-001 events and 200 rule-002 events at test time. Counts are asserted. Both rules produced **0 alerts** on it. This is an invented corpus and **is not a false-positive rate**.
 
+YARA fixtures for `re_lumma_config_strings.yar` (rule `RE_Lumma_C2_Protocol_Strings`):
+
+| Fixture | Expected |
+|---|---|
+| cfg_negative_filler | no match |
+| cfg_negative_no_param | no match |
+| cfg_negative_no_version | no match |
+| cfg_negative_two_commands | no match |
+| cfg_positive_all | match |
+| cfg_positive_lid_variant | match |
+| cfg_positive_uid_variant | match |
+
+YARA fixtures for `re_lumma_chacha_setup.yar` (rule `RE_Lumma_ChaCha_WinHttp_Cooccurrence`):
+
+| Fixture | Expected |
+|---|---|
+| setup_negative_constant_and_dll | no match |
+| setup_negative_constant_only | no match |
+| setup_negative_filler | no match |
+| setup_negative_winhttp_only | no match |
+| setup_positive_all | match |
+| setup_positive_wide_dll | match |
+
 ## 5. Mutation results
 
-Each mutation is applied in memory. The test asserts the exact set of cases that turn red.
+Each mutation is applied in memory. The tests assert the exact set of cases that turn red. Section 9.2 shows the YARA mutations run directly.
 
 | # | Break | Named cases that must turn red | Result |
 |---|---|---|---|
@@ -113,10 +139,10 @@ Each mutation is applied in memory. The test asserts the exact set of cases that
 | M2 | Remove the parent-process filter from rule 001 | R1-N01 to R1-N04 (benign near-misses, non-explorer parent) | **Caught [V]**: those four turned red, plus documented gap R1-G02 (cmd.exe parent), which then alerts. |
 | M3 | Remove the non-browser filter from rule 002 | R2-N01 to R2-N07 (browsers and updaters) | **Caught [V]**: those seven turned red, plus gaps R2-G01 and R2-G02, which then alert. |
 | M4 | Change the config key length in `config_extract.py` | The ChaCha20 round-trip case | **Caught [V]**: round trip fails with `KEY_LEN = 24`. |
-| M5 | Remove one indicator string from `re_lumma_config_strings.yar` | `cfg_positive_all` and the two variant positives | **NOT RUN.** `yara-python` unavailable. |
-| M6 | Weaken the setup condition from all-of to any-of | `setup_negative_constant_only`, `setup_negative_winhttp_only`, `setup_negative_constant_and_dll` | **NOT RUN.** `yara-python` unavailable. |
+| M5 | Remove one indicator string (`$ver40`) from `re_lumma_config_strings.yar` | `cfg_positive_all`, `cfg_positive_lid_variant`, `cfg_positive_uid_variant` | **Caught [V]**: exactly those three turned red. **The mutated rule compiles without error.** YARA 4.5.4 only warns under `error_on_warning`: `line 48: expression always false - requesting 4 of 3.` (section 9.2). So the mutated rule is valid but can never match. |
+| M6 | Weaken the setup condition from `all of them` to `any of them` | `setup_negative_constant_only`, `setup_negative_winhttp_only`, `setup_negative_constant_and_dll` | **Caught [V]**: exactly those three turned red. |
 
-M5 and M6 also have an open question: the M5 mutation leaves a condition of `4 of ($cmd_*)` over three strings. Whether YARA compiles that is **not yet known**. The test fails loudly if it does not compile.
+Limit of M5: it shows that the rule's strict count (`4 of` the named strings) breaks when an indicator is removed. It does not show how detection degrades when an indicator is missing from a real sample, because no real sample is used.
 
 ## 6. Baseline and real-data log
 
@@ -129,7 +155,7 @@ M5 and M6 also have an open question: the M5 mutation leaves a condition of `4 o
 | Rule 002 false-positive count on that corpus | Not yet run (needs the 4663 SACL first) |
 | Offline lab execution of a sample (needs authority; none assumed) | Not yet run. Not available in the reference environment. |
 | Rule 001 miss rate on lab executions | Not yet run |
-| YARA hit and miss on real builds | Not yet run. Rules are low-confidence and untested on real samples. |
+| YARA hit and miss on real builds | Not yet run. Rules are low confidence and untested on real samples. |
 | Target: acceptable false positives per day | Not set. Needs fleet size and alert budget, which `ENVIRONMENT_ASSUMPTIONS.md` does not contain. |
 | Target: minimum detection rate | Not set. |
 | Last revalidation date | Never |
@@ -137,11 +163,22 @@ M5 and M6 also have an open question: the M5 mutation leaves a condition of `4 o
 
 ## 7. How to reproduce
 
+CI-equivalent, in the same image (from the repo root; the mount is read-only):
+
 ```
-python -m pip install -r tests/requirements.txt      # Python 3.12 for the YARA tests
-python tests/fixtures/build_cases.py                 # regenerates the JSONL (a test checks it is current)
+docker run --rm -e PYTHONDONTWRITEBYTECODE=1 -v "<path-to>/re-lumma-stealer:/work:ro" -w /work python:3.12 \
+  bash -c "pip install -q -r tests/requirements.txt && python -m pytest tests -p no:cacheprovider -v"
+```
+
+Or without Docker, on Python 3.12:
+
+```
+python -m pip install -r tests/requirements.txt
+python tests/fixtures/build_cases.py     # regenerates the JSONL (a test checks it is current)
 python -m pytest tests -v
 ```
+
+Pin the image by digest (`python@sha256:5411fa1b302c43f510324381162b5f5d0d93b9ee2af538f09d944f0d290ee3cb`) if you need the same bytes again; the `python:3.12` tag moves.
 
 ## 8. Known limits
 
@@ -149,209 +186,247 @@ python -m pytest tests -v
 - Rule 001 misses: PowerShell started through `cmd.exe`, renamed copies, string-assembled cradles, and truncated command lines (cases R1-G01 to R1-G05).
 - Rule 002 misses: injection into a browser process, path-suffix spoofing, and browsers whose profile is not under `User Data` such as Opera (cases R2-G01 to R2-G03).
 - Process hollowing, in-memory loading and C2 content need telemetry the reference environment does not assume.
-- YARA rules use published strings only. Elastic reports the ChaCha20 constant is decrypted at runtime **[V]**, so the setup rule may miss the family it names, and it will match benign programs that use ChaCha20 and WinHTTP.
+- YARA rules use published strings only. Elastic reports parts of the ChaCha20 constant are decrypted at runtime and XOR-ROL derived **[V]**, so the setup rule may miss the family it names, and it will match benign programs that use ChaCha20 and WinHTTP.
 - The `pe` module is not used, so no condition is untestable on synthetic filler.
 - ATT&CK IDs are confirmed as listed on the MITRE S1213 page (footer v20.1) and, for some, in AA25-141B (v17), but are not checked against the v17 matrix (`CTI_CONTEXT.md` section 3).
 - Source claims in the docs were re-verified on 2026-11-22 against raw downloaded pages by exact string match. `iocs.csv` hashes were matched exactly, case included.
 
-## 9. Real pytest output
+## 9. Real test output
 
-All output below is copied from the runs made on 2026-11-22 by the script that produced this file. Nothing is edited.
+All output below was produced on 2026-11-22 by the script that wrote this file, in the `python:3.12` container. Nothing is edited.
 
-### 9.1 Sigma and extractor suites (exit code 0)
+### 9.1 Full suite, exit code 0
 
 ```
-============================= test session starts =============================
-platform win32 -- Python 3.14.4, pytest-9.2.0, pluggy-1.7.0 -- C:\Users\Kevin\AppData\Local\Temp\claude\08b1cbd4ca292511\c6160613-be43-4100-835d-e20fda17383f\scratchpad\venv\Scripts\python.exe
-rootdir: X:\Defensive-Engineering-Lab\re-lumma-stealer
-configfile: pytest.ini
-collecting ... collected 127 items
+Python 3.12.16
 
-tests/test_sigma_rules.py::test_pysigma_version_matches_pin PASSED       [  0%]
-tests/test_sigma_rules.py::test_rule_parses_with_pysigma_and_has_required_metadata[re_lumma_001] PASSED [  1%]
-tests/test_sigma_rules.py::test_rule_parses_with_pysigma_and_has_required_metadata[re_lumma_002] PASSED [  2%]
-tests/test_sigma_rules.py::test_rule_ids_are_unique PASSED               [  3%]
-tests/test_sigma_rules.py::test_rule_002_declares_that_it_cannot_fire_in_the_reference_environment PASSED [  3%]
-tests/test_sigma_rules.py::test_committed_case_files_match_the_builder PASSED [  4%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-P01] PASSED [  5%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-P02] PASSED [  6%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-P03] PASSED [  7%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-P04] PASSED [  7%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-P05] PASSED [  8%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-P06] PASSED [  9%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-P07] PASSED [ 10%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-P08] PASSED [ 11%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-P09] PASSED [ 11%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-P10] PASSED [ 12%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-N01] PASSED [ 13%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-N02] PASSED [ 14%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-N03] PASSED [ 14%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-N04] PASSED [ 15%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-N05] PASSED [ 16%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-N06] PASSED [ 17%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-N07] PASSED [ 18%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-N08] PASSED [ 18%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-N09] PASSED [ 19%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-N10] PASSED [ 20%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-G01] PASSED [ 21%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-G02] PASSED [ 22%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-G03] PASSED [ 22%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-G04] PASSED [ 23%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-G05] PASSED [ 24%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-P01] PASSED [ 25%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-P02] PASSED [ 25%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-P03] PASSED [ 26%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-P04] PASSED [ 27%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-P05] PASSED [ 28%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-P06] PASSED [ 29%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-P07] PASSED [ 29%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-P08] PASSED [ 30%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-P09] PASSED [ 31%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-N01] PASSED [ 32%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-N02] PASSED [ 33%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-N03] PASSED [ 33%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-N04] PASSED [ 34%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-N05] PASSED [ 35%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-N06] PASSED [ 36%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-N07] PASSED [ 37%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-N08] PASSED [ 37%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-N09] PASSED [ 38%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-N10] PASSED [ 39%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-K01] PASSED [ 40%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-G01] PASSED [ 40%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-G02] PASSED [ 41%]
-tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-G03] PASSED [ 42%]
-tests/test_sigma_rules.py::test_required_categories_and_tp_and_benign_present[re_lumma_001] PASSED [ 43%]
-tests/test_sigma_rules.py::test_required_categories_and_tp_and_benign_present[re_lumma_002] PASSED [ 44%]
-tests/test_sigma_rules.py::test_rule_against_case[R1-P01] PASSED         [ 44%]
-tests/test_sigma_rules.py::test_rule_against_case[R1-P02] PASSED         [ 45%]
-tests/test_sigma_rules.py::test_rule_against_case[R1-P03] PASSED         [ 46%]
-tests/test_sigma_rules.py::test_rule_against_case[R1-P04] PASSED         [ 47%]
-tests/test_sigma_rules.py::test_rule_against_case[R1-P05] PASSED         [ 48%]
-tests/test_sigma_rules.py::test_rule_against_case[R1-P06] PASSED         [ 48%]
-tests/test_sigma_rules.py::test_rule_against_case[R1-P07] PASSED         [ 49%]
-tests/test_sigma_rules.py::test_rule_against_case[R1-P08] PASSED         [ 50%]
-tests/test_sigma_rules.py::test_rule_against_case[R1-P09] PASSED         [ 51%]
-tests/test_sigma_rules.py::test_rule_against_case[R1-P10] PASSED         [ 51%]
-tests/test_sigma_rules.py::test_rule_against_case[R1-N01] PASSED         [ 52%]
-tests/test_sigma_rules.py::test_rule_against_case[R1-N02] PASSED         [ 53%]
-tests/test_sigma_rules.py::test_rule_against_case[R1-N03] PASSED         [ 54%]
-tests/test_sigma_rules.py::test_rule_against_case[R1-N04] PASSED         [ 55%]
-tests/test_sigma_rules.py::test_rule_against_case[R1-N05] PASSED         [ 55%]
-tests/test_sigma_rules.py::test_rule_against_case[R1-N06] PASSED         [ 56%]
-tests/test_sigma_rules.py::test_rule_against_case[R1-N07] PASSED         [ 57%]
-tests/test_sigma_rules.py::test_rule_against_case[R1-N08] PASSED         [ 58%]
-tests/test_sigma_rules.py::test_rule_against_case[R1-N09] PASSED         [ 59%]
-tests/test_sigma_rules.py::test_rule_against_case[R1-N10] PASSED         [ 59%]
-tests/test_sigma_rules.py::test_rule_against_case[R1-G01] PASSED         [ 60%]
-tests/test_sigma_rules.py::test_rule_against_case[R1-G02] PASSED         [ 61%]
-tests/test_sigma_rules.py::test_rule_against_case[R1-G03] PASSED         [ 62%]
-tests/test_sigma_rules.py::test_rule_against_case[R1-G04] PASSED         [ 62%]
-tests/test_sigma_rules.py::test_rule_against_case[R1-G05] PASSED         [ 63%]
-tests/test_sigma_rules.py::test_rule_against_case[R2-P01] PASSED         [ 64%]
-tests/test_sigma_rules.py::test_rule_against_case[R2-P02] PASSED         [ 65%]
-tests/test_sigma_rules.py::test_rule_against_case[R2-P03] PASSED         [ 66%]
-tests/test_sigma_rules.py::test_rule_against_case[R2-P04] PASSED         [ 66%]
-tests/test_sigma_rules.py::test_rule_against_case[R2-P05] PASSED         [ 67%]
-tests/test_sigma_rules.py::test_rule_against_case[R2-P06] PASSED         [ 68%]
-tests/test_sigma_rules.py::test_rule_against_case[R2-P07] PASSED         [ 69%]
-tests/test_sigma_rules.py::test_rule_against_case[R2-P08] PASSED         [ 70%]
-tests/test_sigma_rules.py::test_rule_against_case[R2-P09] PASSED         [ 70%]
-tests/test_sigma_rules.py::test_rule_against_case[R2-N01] PASSED         [ 71%]
-tests/test_sigma_rules.py::test_rule_against_case[R2-N02] PASSED         [ 72%]
-tests/test_sigma_rules.py::test_rule_against_case[R2-N03] PASSED         [ 73%]
-tests/test_sigma_rules.py::test_rule_against_case[R2-N04] PASSED         [ 74%]
-tests/test_sigma_rules.py::test_rule_against_case[R2-N05] PASSED         [ 74%]
-tests/test_sigma_rules.py::test_rule_against_case[R2-N06] PASSED         [ 75%]
-tests/test_sigma_rules.py::test_rule_against_case[R2-N07] PASSED         [ 76%]
-tests/test_sigma_rules.py::test_rule_against_case[R2-N08] PASSED         [ 77%]
-tests/test_sigma_rules.py::test_rule_against_case[R2-N09] PASSED         [ 77%]
-tests/test_sigma_rules.py::test_rule_against_case[R2-N10] PASSED         [ 78%]
-tests/test_sigma_rules.py::test_rule_against_case[R2-K01] PASSED         [ 79%]
+--- installed:
+cryptography        50.0.2
+pySigma             2.1.1
+pytest              9.2.0
+PyYAML              6.0.4
+yara-python         4.5.4
+yara.YARA_VERSION = 4.5.4
+--- pytest (full suite):
+============================= test session starts ==============================
+platform linux -- Python 3.12.16, pytest-9.2.0, pluggy-1.7.0 -- /usr/local/bin/python
+rootdir: /work
+configfile: pytest.ini
+collecting ... collected 156 items
+
+tests/test_config_extract.py::test_cipher_known_answer_zero_key PASSED   [  0%]
+tests/test_config_extract.py::test_round_trip_recovers_synthetic_config PASSED [  1%]
+tests/test_config_extract.py::test_blob_layout_matches_documented_offsets PASSED [  1%]
+tests/test_config_extract.py::test_ciphertext_does_not_contain_plaintext PASSED [  2%]
+tests/test_config_extract.py::test_blob_is_deterministic_and_seed_changes_it PASSED [  3%]
+tests/test_config_extract.py::test_parse_returns_the_parts PASSED        [  3%]
+tests/test_config_extract.py::test_short_blob_rejected[0] PASSED         [  4%]
+tests/test_config_extract.py::test_short_blob_rejected[1] PASSED         [  5%]
+tests/test_config_extract.py::test_short_blob_rejected[59] PASSED        [  5%]
+tests/test_config_extract.py::test_wrong_magic_rejected PASSED           [  6%]
+tests/test_config_extract.py::test_real_looking_file_is_refused PASSED   [  7%]
+tests/test_config_extract.py::test_truncated_ciphertext_rejected PASSED  [  7%]
+tests/test_config_extract.py::test_oversized_length_field_rejected PASSED [  8%]
+tests/test_config_extract.py::test_bad_key_or_nonce_length_rejected PASSED [  8%]
+tests/test_config_extract.py::test_wrong_key_does_not_recover_config PASSED [  9%]
+tests/test_config_extract.py::test_cli_refuses_non_synthetic_file PASSED [ 10%]
+tests/test_config_extract.py::test_cli_decrypts_synthetic_blob PASSED    [ 10%]
+tests/test_mutations.py::test_baseline_unmutated_rules_have_no_red_cases PASSED [ 11%]
+tests/test_mutations.py::test_m1_drop_encoded_variant_from_rule_001 PASSED [ 12%]
+tests/test_mutations.py::test_m2_remove_parent_filter_from_rule_001 PASSED [ 12%]
+tests/test_mutations.py::test_m3_remove_browser_filter_from_rule_002 PASSED [ 13%]
+tests/test_mutations.py::test_m4_change_key_length_in_extractor PASSED   [ 14%]
+tests/test_mutations.py::test_m5_remove_one_indicator_from_config_strings_rule PASSED [ 14%]
+tests/test_mutations.py::test_m6_weaken_setup_condition_to_any_of PASSED [ 15%]
+tests/test_sigma_rules.py::test_pysigma_version_matches_pin PASSED       [ 16%]
+tests/test_sigma_rules.py::test_rule_parses_with_pysigma_and_has_required_metadata[re_lumma_001] PASSED [ 16%]
+tests/test_sigma_rules.py::test_rule_parses_with_pysigma_and_has_required_metadata[re_lumma_002] PASSED [ 17%]
+tests/test_sigma_rules.py::test_rule_ids_are_unique PASSED               [ 17%]
+tests/test_sigma_rules.py::test_rule_002_declares_that_it_cannot_fire_in_the_reference_environment PASSED [ 18%]
+tests/test_sigma_rules.py::test_committed_case_files_match_the_builder PASSED [ 19%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-P01] PASSED [ 19%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-P02] PASSED [ 20%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-P03] PASSED [ 21%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-P04] PASSED [ 21%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-P05] PASSED [ 22%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-P06] PASSED [ 23%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-P07] PASSED [ 23%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-P08] PASSED [ 24%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-P09] PASSED [ 25%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-P10] PASSED [ 25%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-N01] PASSED [ 26%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-N02] PASSED [ 26%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-N03] PASSED [ 27%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-N04] PASSED [ 28%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-N05] PASSED [ 28%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-N06] PASSED [ 29%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-N07] PASSED [ 30%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-N08] PASSED [ 30%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-N09] PASSED [ 31%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-N10] PASSED [ 32%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-G01] PASSED [ 32%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-G02] PASSED [ 33%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-G03] PASSED [ 33%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-G04] PASSED [ 34%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R1-G05] PASSED [ 35%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-P01] PASSED [ 35%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-P02] PASSED [ 36%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-P03] PASSED [ 37%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-P04] PASSED [ 37%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-P05] PASSED [ 38%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-P06] PASSED [ 39%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-P07] PASSED [ 39%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-P08] PASSED [ 40%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-P09] PASSED [ 41%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-N01] PASSED [ 41%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-N02] PASSED [ 42%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-N03] PASSED [ 42%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-N04] PASSED [ 43%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-N05] PASSED [ 44%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-N06] PASSED [ 44%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-N07] PASSED [ 45%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-N08] PASSED [ 46%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-N09] PASSED [ 46%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-N10] PASSED [ 47%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-K01] PASSED [ 48%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-G01] PASSED [ 48%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-G02] PASSED [ 49%]
+tests/test_sigma_rules.py::test_case_schema_and_parsed_fields[R2-G03] PASSED [ 50%]
+tests/test_sigma_rules.py::test_required_categories_and_tp_and_benign_present[re_lumma_001] PASSED [ 50%]
+tests/test_sigma_rules.py::test_required_categories_and_tp_and_benign_present[re_lumma_002] PASSED [ 51%]
+tests/test_sigma_rules.py::test_rule_against_case[R1-P01] PASSED         [ 51%]
+tests/test_sigma_rules.py::test_rule_against_case[R1-P02] PASSED         [ 52%]
+tests/test_sigma_rules.py::test_rule_against_case[R1-P03] PASSED         [ 53%]
+tests/test_sigma_rules.py::test_rule_against_case[R1-P04] PASSED         [ 53%]
+tests/test_sigma_rules.py::test_rule_against_case[R1-P05] PASSED         [ 54%]
+tests/test_sigma_rules.py::test_rule_against_case[R1-P06] PASSED         [ 55%]
+tests/test_sigma_rules.py::test_rule_against_case[R1-P07] PASSED         [ 55%]
+tests/test_sigma_rules.py::test_rule_against_case[R1-P08] PASSED         [ 56%]
+tests/test_sigma_rules.py::test_rule_against_case[R1-P09] PASSED         [ 57%]
+tests/test_sigma_rules.py::test_rule_against_case[R1-P10] PASSED         [ 57%]
+tests/test_sigma_rules.py::test_rule_against_case[R1-N01] PASSED         [ 58%]
+tests/test_sigma_rules.py::test_rule_against_case[R1-N02] PASSED         [ 58%]
+tests/test_sigma_rules.py::test_rule_against_case[R1-N03] PASSED         [ 59%]
+tests/test_sigma_rules.py::test_rule_against_case[R1-N04] PASSED         [ 60%]
+tests/test_sigma_rules.py::test_rule_against_case[R1-N05] PASSED         [ 60%]
+tests/test_sigma_rules.py::test_rule_against_case[R1-N06] PASSED         [ 61%]
+tests/test_sigma_rules.py::test_rule_against_case[R1-N07] PASSED         [ 62%]
+tests/test_sigma_rules.py::test_rule_against_case[R1-N08] PASSED         [ 62%]
+tests/test_sigma_rules.py::test_rule_against_case[R1-N09] PASSED         [ 63%]
+tests/test_sigma_rules.py::test_rule_against_case[R1-N10] PASSED         [ 64%]
+tests/test_sigma_rules.py::test_rule_against_case[R1-G01] PASSED         [ 64%]
+tests/test_sigma_rules.py::test_rule_against_case[R1-G02] PASSED         [ 65%]
+tests/test_sigma_rules.py::test_rule_against_case[R1-G03] PASSED         [ 66%]
+tests/test_sigma_rules.py::test_rule_against_case[R1-G04] PASSED         [ 66%]
+tests/test_sigma_rules.py::test_rule_against_case[R1-G05] PASSED         [ 67%]
+tests/test_sigma_rules.py::test_rule_against_case[R2-P01] PASSED         [ 67%]
+tests/test_sigma_rules.py::test_rule_against_case[R2-P02] PASSED         [ 68%]
+tests/test_sigma_rules.py::test_rule_against_case[R2-P03] PASSED         [ 69%]
+tests/test_sigma_rules.py::test_rule_against_case[R2-P04] PASSED         [ 69%]
+tests/test_sigma_rules.py::test_rule_against_case[R2-P05] PASSED         [ 70%]
+tests/test_sigma_rules.py::test_rule_against_case[R2-P06] PASSED         [ 71%]
+tests/test_sigma_rules.py::test_rule_against_case[R2-P07] PASSED         [ 71%]
+tests/test_sigma_rules.py::test_rule_against_case[R2-P08] PASSED         [ 72%]
+tests/test_sigma_rules.py::test_rule_against_case[R2-P09] PASSED         [ 73%]
+tests/test_sigma_rules.py::test_rule_against_case[R2-N01] PASSED         [ 73%]
+tests/test_sigma_rules.py::test_rule_against_case[R2-N02] PASSED         [ 74%]
+tests/test_sigma_rules.py::test_rule_against_case[R2-N03] PASSED         [ 75%]
+tests/test_sigma_rules.py::test_rule_against_case[R2-N04] PASSED         [ 75%]
+tests/test_sigma_rules.py::test_rule_against_case[R2-N05] PASSED         [ 76%]
+tests/test_sigma_rules.py::test_rule_against_case[R2-N06] PASSED         [ 76%]
+tests/test_sigma_rules.py::test_rule_against_case[R2-N07] PASSED         [ 77%]
+tests/test_sigma_rules.py::test_rule_against_case[R2-N08] PASSED         [ 78%]
+tests/test_sigma_rules.py::test_rule_against_case[R2-N09] PASSED         [ 78%]
+tests/test_sigma_rules.py::test_rule_against_case[R2-N10] PASSED         [ 79%]
+tests/test_sigma_rules.py::test_rule_against_case[R2-K01] PASSED         [ 80%]
 tests/test_sigma_rules.py::test_rule_against_case[R2-G01] PASSED         [ 80%]
 tests/test_sigma_rules.py::test_rule_against_case[R2-G02] PASSED         [ 81%]
-tests/test_sigma_rules.py::test_rule_against_case[R2-G03] PASSED         [ 81%]
+tests/test_sigma_rules.py::test_rule_against_case[R2-G03] PASSED         [ 82%]
 tests/test_sigma_rules.py::test_rule_does_not_fire_on_the_other_rules_events[re_lumma_001] PASSED [ 82%]
 tests/test_sigma_rules.py::test_rule_does_not_fire_on_the_other_rules_events[re_lumma_002] PASSED [ 83%]
-tests/test_sigma_rules.py::test_benign_corpus_counts_are_fixed PASSED    [ 84%]
-tests/test_sigma_rules.py::test_benign_corpus_is_deterministic PASSED    [ 85%]
+tests/test_sigma_rules.py::test_benign_corpus_counts_are_fixed PASSED    [ 83%]
+tests/test_sigma_rules.py::test_benign_corpus_is_deterministic PASSED    [ 84%]
 tests/test_sigma_rules.py::test_rule_001_silent_on_synthetic_benign_corpus PASSED [ 85%]
-tests/test_sigma_rules.py::test_rule_002_silent_on_synthetic_benign_corpus PASSED [ 86%]
-tests/test_config_extract.py::test_cipher_known_answer_zero_key PASSED   [ 87%]
-tests/test_config_extract.py::test_round_trip_recovers_synthetic_config PASSED [ 88%]
-tests/test_config_extract.py::test_blob_layout_matches_documented_offsets PASSED [ 88%]
-tests/test_config_extract.py::test_ciphertext_does_not_contain_plaintext PASSED [ 89%]
-tests/test_config_extract.py::test_blob_is_deterministic_and_seed_changes_it PASSED [ 90%]
-tests/test_config_extract.py::test_parse_returns_the_parts PASSED        [ 91%]
-tests/test_config_extract.py::test_short_blob_rejected[0] PASSED         [ 92%]
-tests/test_config_extract.py::test_short_blob_rejected[1] PASSED         [ 92%]
-tests/test_config_extract.py::test_short_blob_rejected[59] PASSED        [ 93%]
-tests/test_config_extract.py::test_wrong_magic_rejected PASSED           [ 94%]
-tests/test_config_extract.py::test_real_looking_file_is_refused PASSED   [ 95%]
-tests/test_config_extract.py::test_truncated_ciphertext_rejected PASSED  [ 96%]
-tests/test_config_extract.py::test_oversized_length_field_rejected PASSED [ 96%]
-tests/test_config_extract.py::test_bad_key_or_nonce_length_rejected PASSED [ 97%]
-tests/test_config_extract.py::test_wrong_key_does_not_recover_config PASSED [ 98%]
-tests/test_config_extract.py::test_cli_refuses_non_synthetic_file PASSED [ 99%]
-tests/test_config_extract.py::test_cli_decrypts_synthetic_blob PASSED    [100%]
+tests/test_sigma_rules.py::test_rule_002_silent_on_synthetic_benign_corpus PASSED [ 85%]
+tests/test_yara_rules.py::test_yara_python_version_matches_pin PASSED    [ 86%]
+tests/test_yara_rules.py::test_rule_file_compiles_without_warnings_and_declares_its_basis[re_lumma_config_strings.yar] PASSED [ 87%]
+tests/test_yara_rules.py::test_rule_file_compiles_without_warnings_and_declares_its_basis[re_lumma_chacha_setup.yar] PASSED [ 87%]
+tests/test_yara_rules.py::test_rules_do_not_use_pe_module[re_lumma_config_strings.yar] PASSED [ 88%]
+tests/test_yara_rules.py::test_rules_do_not_use_pe_module[re_lumma_chacha_setup.yar] PASSED [ 89%]
+tests/test_yara_rules.py::test_fixtures_are_non_executable PASSED        [ 89%]
+tests/test_yara_rules.py::test_config_strings_rule_against_fixture[cfg_negative_filler] PASSED [ 90%]
+tests/test_yara_rules.py::test_config_strings_rule_against_fixture[cfg_negative_no_param] PASSED [ 91%]
+tests/test_yara_rules.py::test_config_strings_rule_against_fixture[cfg_negative_no_version] PASSED [ 91%]
+tests/test_yara_rules.py::test_config_strings_rule_against_fixture[cfg_negative_two_commands] PASSED [ 92%]
+tests/test_yara_rules.py::test_config_strings_rule_against_fixture[cfg_positive_all] PASSED [ 92%]
+tests/test_yara_rules.py::test_config_strings_rule_against_fixture[cfg_positive_lid_variant] PASSED [ 93%]
+tests/test_yara_rules.py::test_config_strings_rule_against_fixture[cfg_positive_uid_variant] PASSED [ 94%]
+tests/test_yara_rules.py::test_setup_rule_against_fixture[setup_negative_constant_and_dll] PASSED [ 94%]
+tests/test_yara_rules.py::test_setup_rule_against_fixture[setup_negative_constant_only] PASSED [ 95%]
+tests/test_yara_rules.py::test_setup_rule_against_fixture[setup_negative_filler] PASSED [ 96%]
+tests/test_yara_rules.py::test_setup_rule_against_fixture[setup_negative_winhttp_only] PASSED [ 96%]
+tests/test_yara_rules.py::test_setup_rule_against_fixture[setup_positive_all] PASSED [ 97%]
+tests/test_yara_rules.py::test_setup_rule_against_fixture[setup_positive_wide_dll] PASSED [ 98%]
+tests/test_yara_rules.py::test_each_rule_ignores_the_other_rules_positives PASSED [ 98%]
+tests/test_yara_rules.py::test_rules_ignore_the_synthetic_config_blob PASSED [ 99%]
+tests/test_yara_rules.py::test_fixture_sets_are_deterministic PASSED     [100%]
 
-============================= 127 passed in 0.39s =============================
+============================= 156 passed in 1.21s ==============================
+pytest exit code: 0
 ```
 
-### 9.2 Mutation suite (exit code 1)
-
-M5 and M6 fail here because `yara` is not installed. They are failures, not passes.
+### 9.2 M5 and M6 run directly (compile result, warnings, per-fixture matches), exit code 0
 
 ```
-============================= test session starts =============================
-platform win32 -- Python 3.14.4, pytest-9.2.0, pluggy-1.7.0 -- C:\Users\Kevin\AppData\Local\Temp\claude\08b1cbd4ca292511\c6160613-be43-4100-835d-e20fda17383f\scratchpad\venv\Scripts\python.exe
-rootdir: X:\Defensive-Engineering-Lab\re-lumma-stealer
-configfile: pytest.ini
-collecting ... collected 7 items
+yara 4.5.4
 
-tests/test_mutations.py::test_baseline_unmutated_rules_have_no_red_cases PASSED [ 14%]
-tests/test_mutations.py::test_m1_drop_encoded_variant_from_rule_001 PASSED [ 28%]
-tests/test_mutations.py::test_m2_remove_parent_filter_from_rule_001 PASSED [ 42%]
-tests/test_mutations.py::test_m3_remove_browser_filter_from_rule_002 PASSED [ 57%]
-tests/test_mutations.py::test_m4_change_key_length_in_extractor PASSED   [ 71%]
-tests/test_mutations.py::test_m5_remove_one_indicator_from_config_strings_rule FAILED [ 85%]
-tests/test_mutations.py::test_m6_weaken_setup_condition_to_any_of FAILED [100%]
+=== config_strings ORIGINAL
+compile (error_on_warning=False): OK
+compile (error_on_warning=True): OK
+  cfg_negative_filler                  expected=False matched=False
+  cfg_negative_no_param                expected=False matched=False
+  cfg_negative_no_version              expected=False matched=False
+  cfg_negative_two_commands            expected=False matched=False
+  cfg_positive_all                     expected=True  matched=True 
+  cfg_positive_lid_variant             expected=True  matched=True 
+  cfg_positive_uid_variant             expected=True  matched=True 
 
-================================== FAILURES ===================================
-E   ModuleNotFoundError: No module named 'yara'
-X:\Defensive-Engineering-Lab\re-lumma-stealer\tests\test_mutations.py:98: ModuleNotFoundError: No module named 'yara'
-E   ModuleNotFoundError: No module named 'yara'
-X:\Defensive-Engineering-Lab\re-lumma-stealer\tests\test_mutations.py:98: ModuleNotFoundError: No module named 'yara'
-=========================== short test summary info ===========================
-FAILED tests/test_mutations.py::test_m5_remove_one_indicator_from_config_strings_rule
-FAILED tests/test_mutations.py::test_m6_weaken_setup_condition_to_any_of - Mo...
-========================= 2 failed, 5 passed in 0.13s =========================
-```
+=== M5 mutated config_strings (string removed, condition '4 of ($cmd_*)')
+compile (error_on_warning=False): OK
+compile (error_on_warning=True): WarningError: ['line 48: expression always false - requesting 4 of 3.']
+  cfg_negative_filler                  expected=False matched=False
+  cfg_negative_no_param                expected=False matched=False
+  cfg_negative_no_version              expected=False matched=False
+  cfg_negative_two_commands            expected=False matched=False
+  cfg_positive_all                     expected=True  matched=False   <-- RED (differs from expected)
+  cfg_positive_lid_variant             expected=True  matched=False   <-- RED (differs from expected)
+  cfg_positive_uid_variant             expected=True  matched=False   <-- RED (differs from expected)
 
-### 9.3 YARA suite (exit code 2)
+=== setup ORIGINAL
+compile (error_on_warning=False): OK
+compile (error_on_warning=True): OK
+  setup_negative_constant_and_dll      expected=False matched=False
+  setup_negative_constant_only         expected=False matched=False
+  setup_negative_filler                expected=False matched=False
+  setup_negative_winhttp_only          expected=False matched=False
+  setup_positive_all                   expected=True  matched=True 
+  setup_positive_wide_dll              expected=True  matched=True 
 
-The file cannot be collected without `yara-python`. **No YARA test ran.**
+=== M6 mutated setup ('any of them')
+compile (error_on_warning=False): OK
+compile (error_on_warning=True): OK
+  setup_negative_constant_and_dll      expected=False matched=True    <-- RED (differs from expected)
+  setup_negative_constant_only         expected=False matched=True    <-- RED (differs from expected)
+  setup_negative_filler                expected=False matched=False
+  setup_negative_winhttp_only          expected=False matched=True    <-- RED (differs from expected)
+  setup_positive_all                   expected=True  matched=True 
+  setup_positive_wide_dll              expected=True  matched=True 
 
-```
-============================= test session starts =============================
-platform win32 -- Python 3.14.4, pytest-9.2.0, pluggy-1.7.0 -- C:\Users\Kevin\AppData\Local\Temp\claude\08b1cbd4ca292511\c6160613-be43-4100-835d-e20fda17383f\scratchpad\venv\Scripts\python.exe
-rootdir: X:\Defensive-Engineering-Lab\re-lumma-stealer
-configfile: pytest.ini
-collecting ... collected 0 items / 1 error
-
-=================================== ERRORS ====================================
-__________________ ERROR collecting tests/test_yara_rules.py __________________
-ImportError while importing test module 'X:\Defensive-Engineering-Lab\re-lumma-stealer\tests\test_yara_rules.py'.
-Hint: make sure your test modules/packages have valid Python names.
-Traceback:
-C:\Python314\Lib\importlib\__init__.py:88: in import_module
-    return _bootstrap._gcd_import(name[level:], package, level)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests\test_yara_rules.py:17: in <module>
-    import yara
-E   ModuleNotFoundError: No module named 'yara'
-=========================== short test summary info ===========================
-ERROR tests/test_yara_rules.py
-!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
-============================== 1 error in 0.15s ===============================
+M5 mutated condition lines:
+        $cmd_recv = "receive_message" ascii wide
+        $cmd_send = "send_message" ascii wide
+        $cmd_get  = "get_message" ascii wide
+        4 of ($cmd_*) and
+        1 of ($p_*)
+exit code: 0
 ```

@@ -110,7 +110,12 @@ def test_m5_remove_one_indicator_from_config_strings_rule():
     text = mutate(original, '        $ver40    = "ver=4.0" ascii wide\n', "")
     text = mutate(text, "4 of ($cmd_*, $ver40)", "4 of ($cmd_*)")
     red = _yara_red(text, ga.config_strings_fixtures())
-    assert "__compile_error__" not in red, red
+    assert "__compile_error__" not in red, red  # the mutated rule compiles under default settings
+    import yara
+
+    # Under strict settings YARA flags it: the rule can no longer match anything ("4 of" only 3 strings).
+    with pytest.raises(yara.WarningError, match="expression always false - requesting 4 of 3"):
+        yara.compile(source=text, error_on_warning=True)
     named = {"cfg_positive_all", "cfg_positive_uid_variant", "cfg_positive_lid_variant"}
     assert red == named
 
