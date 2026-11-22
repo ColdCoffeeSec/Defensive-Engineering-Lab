@@ -13,6 +13,9 @@ import docs_lib as d
 
 README = "README.md"
 MOD_README = "re-lumma-stealer/README.md"
+CWE_README = "cwe-078-os-command-injection/README.md"
+CWE_TESTING = "cwe-078-os-command-injection/TESTING.md"
+LUMMA_TESTING = "re-lumma-stealer/TESTING.md"
 CONTRIB = "CONTRIBUTING.md"
 RULE001 = "re-lumma-stealer/detection_rules/sigma/re_lumma_001_clickfix_user_powershell.yml"
 YARA_CFG = "re-lumma-stealer/detection_rules/yara/re_lumma_config_strings.yar"
@@ -23,6 +26,7 @@ def _runners(truth, root):
     return {
         "links": lambda r: d.check_links(r),
         "numbers": lambda r: d.check_numbers(r, truth),
+        "pasted-output": lambda r: d.check_pasted_pytest_output(r, truth),
         "command-tags": lambda r: d.check_command_tags(r),
         "command-run": lambda r: d.check_verified_commands(r, lambda s: d.run_bash(s, root)),
         "module-table": lambda r: d.check_module_table(r),
@@ -90,6 +94,17 @@ def drop_dir(prefix):
     return go
 
 
+def strip_suite_markers(path, suite):
+    """Delete what tells a pasted pytest block which suite it is from: every `rootdir:` line and `<suite>/tests/` path."""
+    def go(repo):
+        text = repo.text(path)
+        new = re.sub(r"(?m)^rootdir:.*\n", "", text).replace(f"{suite}/tests/", "tests/")
+        assert new != text, f"no suite marker for {suite} in {path}"
+        repo.set_text(path, new)
+        return repo
+    return go
+
+
 def only_readme_with_failing_command(repo):
     """A one-file snapshot whose `# verified` block is replaced by a command that fails."""
     text = repo.text(README)
@@ -124,6 +139,22 @@ MUTATIONS = [
     ("numbers", "Sigma rule count quoted wrongly", edit(README, "3 Sigma rules, 2 YARA rules", "4 Sigma rules, 2 YARA rules"), "quotes 4"),
     ("numbers", "number written as a word is checked too", edit(MOD_README, "2 YARA rules", "five YARA rules"), "quotes 5"),
     ("numbers", "bare number in root prose has no module context", append(README, "\nThis repository has 12 tests in total.\n"), "no module context"),
+    ("numbers", "the drift that was fixed: stale corpus count in the cwe-078 module table", edit(CWE_README, "32 labelled raw log lines", "24 labelled raw log lines"),
+     "quotes 24 but cwe-078-os-command-injection (tests/test_logs.jsonl) has 32"),
+    ("numbers", "'N labelled' phrase that cannot be counted", edit(CWE_README, "32 labelled raw log lines", "32 labelled benign events"), "ambiguous, it labels 'benign events'"),
+    ("numbers", "'N labelled' with nothing after it", append(CWE_README, "\nThe corpus has 32 labelled.\n"), "ambiguous, it labels nothing"),
+    ("numbers", "labelled subset of the cases cannot be checked", append(CWE_README, "\nIt has 16 labelled benign cases.\n"), "ambiguous, it labels 'benign cases'"),
+    ("numbers", "'N test cases' could mean tests or cases", append(CWE_TESTING, "\nThe suite has 32 test cases.\n"), "ambiguous (pytest tests or corpus cases?)"),
+    ("numbers", "'N case tests' could mean tests or cases", append(CWE_TESTING, "\nThe 32 case tests all pass.\n"), "'32 case tests' is ambiguous"),
+    ("numbers", "N/N cases quoted wrongly", edit(CWE_README, "`32/32 cases PASS`", "`32/31 cases PASS`"), "quotes 31"),
+    ("numbers", "labelled count for a file named on the line is checked against that file", append(CWE_README, "\n`tests/test_logs.jsonl` has 31 labelled cases.\n"),
+     "quotes 31"),
+    ("pasted-output", "'collected N items' changed in the re-lumma block", edit(LUMMA_TESTING, "collected 175 items", "collected 176 items"), "says collected 176 but pytest collects 175"),
+    ("pasted-output", "'N passed' changed in the re-lumma block", edit(LUMMA_TESTING, "= 175 passed in 1.36s =", "= 174 passed in 1.36s ="), "reports 174 results"),
+    ("pasted-output", "'N passed' changed in the excerpt in the cwe-078 TESTING.md", edit(CWE_TESTING, "= 61 passed in 0.35s =", "= 60 passed in 0.35s ="), "reports 60 results"),
+    ("pasted-output", "docs-checks block loses its suite marker", strip_suite_markers(LUMMA_TESTING, "docs-checks"), "names no suite"),
+    ("pasted-output", "excerpt in cwe-078 TESTING.md loses its suite marker", strip_suite_markers(CWE_TESTING, "cwe-078-os-command-injection"), "names no suite"),
+    ("pasted-output", "rootdir names another suite than the test paths", edit(LUMMA_TESTING, "rootdir: /repo/docs-checks", "rootdir: /repo/re-lumma-stealer"), "more than one suite"),
     ("command-tags", "command block loses its tag", edit(README, "# verified\npython -m pip install -r re-lumma-stealer/tests/requirements.txt -r cwe",
                                                          "python -m pip install -r re-lumma-stealer/tests/requirements.txt -r cwe"), "untagged"),
     ("command-run", "verified command exits non-zero", only_readme_with_failing_command, "exited 3"),

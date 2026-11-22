@@ -51,7 +51,7 @@ docker run --rm -e PYTHONDONTWRITEBYTECODE=1 -v "$PWD:/repo:ro" -w /repo python:
 
 `re-lumma-stealer/tests` needs Python 3.12 because `yara-python` has no Windows wheel for Python 3.14 (see [TESTING.md](./re-lumma-stealer/TESTING.md), section 1).
 
-The documentation checks live in [`docs-checks`](./docs-checks/) and run in CI in the same matrix as the module tests. They check that links resolve, that quoted counts match what pytest collects, that commands tagged `# verified` run, and that the safety rules hold. To run them locally:
+The documentation checks live in [`docs-checks`](./docs-checks/) and run in CI in the same matrix as the module tests. They check that links resolve, that quoted counts and pasted pytest output match what pytest collects, that commands tagged `# verified` run, and that the safety rules hold. To run them locally:
 
 ```bash
 # verified-locally: 2026-11-22, in the python:3.12 container. Not tagged "verified" because the check refuses to run itself.

@@ -23,6 +23,7 @@ import yaml
 
 SKIP_DIRS = {".git", "__pycache__", ".pytest_cache", "node_modules", ".venv", "venv"}
 MODULE_PREFIXES = ("cwe-", "ttp-", "re-", "cloud-", "net-")
+SUITE_PREFIXES = MODULE_PREFIXES + ("docs-",)  # a suite is anything CI collects: the modules and the docs-* folders
 MAX_FILE_BYTES = 1_048_576  # 1 MiB
 INTAKE_FILE = "SOC_INTAKE_RULEBOOK.md"
 
@@ -78,9 +79,17 @@ NUMBER_WORDS = {w: i for i, w in enumerate(
     "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen "
     "eighteen nineteen twenty".split())}
 COUNT_RE = re.compile(
-    r"(?<![\w/.\-])(\d[\d,]*|" + "|".join(NUMBER_WORDS) + r")\s+(Sigma\s+rules?|YARA\s+rules?|test\s+cases?|cases?|tests?|rules?|passed)(?![\w-])",
+    r"(?<![\w/.\-])((?:\d+/)?\d[\d,]*|" + "|".join(NUMBER_WORDS) + r")\s+(Sigma\s+rules?|YARA\s+rules?|test\s+cases?|cases?|tests?|rules?|passed)(?![\w-])",
     re.I,
 )
+# "24 labelled raw log lines": a number, "labelled" (or "labeled"), then up to five words that say what was labelled.
+LABELLED_RE = re.compile(
+    r"(?<![\w/.\-])(\d[\d,]*|" + "|".join(NUMBER_WORDS) + r")\s+labell?ed\b((?:[ \t]+[A-Za-z][A-Za-z-]*){0,5})",
+    re.I,
+)
+LABELLED_STOP = {"in", "with", "from", "per", "for", "across", "to", "of", "and", "plus", "that", "which", "are", "is",
+                 "by", "on", "at", "into", "so", "but", "or", "as", "each", "the", "a", "an"}
+LABELLED_FILLER = {"raw", "log"}  # words that may sit in front of "lines" or "cases" without changing what is counted
 
 COMMAND_LANGS = {"bash", "sh", "shell", "zsh", "powershell", "pwsh", "console", "cmd", "bat"}
 COMMAND_DOC_NAMES = {"README.md", "CONTRIBUTING.md", "SECURITY.md"}
@@ -128,6 +137,11 @@ class Repo:
     def modules(self):
         names = {p.split("/", 1)[0] for p in self.files if "/" in p}
         return sorted(n for n in names if n.startswith(MODULE_PREFIXES))
+
+    def suites(self):
+        """Folders CI collects with pytest: the modules, plus the docs-* folders. Each needs a tests/ directory."""
+        names = {p.split("/", 1)[0] for p in self.files if "/" in p}
+        return sorted(n for n in names if n.startswith(SUITE_PREFIXES) and self.has_dir(f"{n}/tests"))
 
     def md_files(self):
         return self.paths((".md",))
@@ -260,15 +274,49 @@ def _noun_kind(noun):
     return "tests"  # test, tests, passed
 
 
-def check_numbers(repo, truth):
-    """Every 'N tests / cases / rules / passed' quoted in a README.md or TESTING.md must equal the real value.
+def _corpus_target(line, t):
+    """The count a 'cases' phrase must equal. If the line names one of the suite's corpus files, that file's lines.
 
-    `truth` maps module folder -> {"tests": n, "cases": n, "sigma": n, "yara": n}.
-    Text inside fenced blocks is skipped (it is pasted tool output). A number in root prose that has no module
-    context is reported as ambiguous: link to the module's TESTING.md instead of repeating the number.
+    Otherwise all corpus lines of the suite. Returns (count, label, problem); problem is set when the line names
+    more than one corpus file, because then it is not clear which one the number is about.
+    """
+    corpus = t.get("corpus", {})
+    named = sorted(name for name in corpus if re.search(r"(?<![\w.-])" + re.escape(posixpath.basename(name)), line))
+    if len(named) > 1:
+        return None, None, f"names more than one corpus file ({', '.join(named)}), so the number is ambiguous: give one number per file"
+    if named:
+        return corpus[named[0]], named[0], None
+    return t["cases"], "all corpus files", None
+
+
+def _labelled_phrase(tail):
+    """Split the words after 'labelled' at the first stop word. Returns (modifiers, head, phrase)."""
+    words = []
+    for w in tail.split():
+        if w.lower() in LABELLED_STOP:
+            break
+        words.append(w)
+    return [w.lower() for w in words[:-1]], (words[-1].lower() if words else ""), " ".join(words)
+
+
+def check_numbers(repo, truth):
+    """Every count quoted in prose of a README.md or TESTING.md must equal the real value.
+
+    Phrases that are checked (outside fenced blocks; fenced text is pasted output, see check_pasted_pytest_output):
+      "N tests", "N passed"            -> tests pytest collects for the suite
+      "N cases", "N/N cases"           -> lines in the suite's corpus (*.jsonl) files, or in the one file named on the line
+      "N rules", "N Sigma rules", "N YARA rules"
+      "N labelled [raw] [log] lines" or "N labelled cases"   -> same as "N cases"
+    A phrase whose meaning cannot be told from its words fails with a message that asks for a clearer one:
+    "N test cases" and "N case tests" (pytest tests or corpus cases?), "N labelled <anything else>" (events,
+    benign cases, ...), and a bare "N labelled".
+
+    `truth` maps suite folder -> {"tests": n, "cases": n, "sigma": n, "yara": n, "corpus": {file: lines}}.
+    A number in root prose that has no suite context is reported as ambiguous: link to the module's TESTING.md.
     """
     problems = []
     modules = sorted(truth)
+    clearer = "write 'N cases' or 'N labelled raw log lines', or name the file and give the count for that file"
     for path in repo.paths((".md",)):
         if posixpath.basename(path) not in ("README.md", "TESTING.md"):
             continue
@@ -280,35 +328,151 @@ def check_numbers(repo, truth):
                 module = next((m for m in modules if m in line), None)
             for m in COUNT_RE.finditer(line):
                 token, noun = m.group(1), re.sub(r"\s+", " ", m.group(2).lower())
-                if re.fullmatch(r"0\d+", token) or noun in ("case", "test", "test case"):
-                    continue  # a zero-padded rule id such as "002", or "one case" meaning a single instance, not a total
-                value, kind = to_int(token), _noun_kind(m.group(2))
+                if re.fullmatch(r"0\d+", token):
+                    continue  # a zero-padded rule id such as "002"
                 where = f"{path}:{n}: '{m.group(0)}'"
+                values = [to_int(part) for part in token.split("/")]
+                if noun in ("case", "test", "test case") and values == [1]:
+                    continue  # "one case" meaning a single instance, not a total
+                case_tests = noun == "case" and re.match(r"\s+tests?\b", line[m.end():])
+                if noun.startswith("test case") or case_tests:
+                    shown = m.group(0) + (case_tests.group(0) if case_tests else "")
+                    problems.append(f"{path}:{n}: '{shown}' is ambiguous (pytest tests or corpus cases?): write 'N tests' or 'N cases'")
+                    continue
+                if noun in ("case", "test"):
+                    continue  # a singular noun used as a modifier ("5 test files"), not a total
+                kind = _noun_kind(m.group(2))
                 if module is None:
                     problems.append(f"{where}: number with no module context (link to the module's TESTING.md instead)")
                     continue
                 t = truth[module]
                 actual = t["sigma"] + t["yara"] if kind == "rules" else t[kind]
-                if value != actual:
-                    problems.append(f"{where}: quotes {value} but {module} has {actual} ({kind})")
+                label = module
+                if kind == "cases":
+                    actual, where_from, why = _corpus_target(line, t)
+                    if why:
+                        problems.append(f"{where}: {why}")
+                        continue
+                    label = f"{module} ({where_from})"
+                for value in values:
+                    if value != actual:
+                        problems.append(f"{where}: quotes {value} but {label} has {actual} ({kind})")
+            for m in LABELLED_RE.finditer(line):
+                value = to_int(m.group(1))
+                mods, head, phrase = _labelled_phrase(m.group(2))
+                where = f"{path}:{n}: '{m.group(0).strip()}'"
+                if module is None:
+                    problems.append(f"{where}: number with no module context (link to the module's TESTING.md instead)")
+                    continue
+                if head in ("case", "line") and value == 1:
+                    continue  # "one labelled case" meaning a single instance
+                if head not in ("cases", "lines") or any(w not in LABELLED_FILLER for w in mods):
+                    what = f"'{phrase}'" if phrase else "nothing"
+                    problems.append(f"{where}: ambiguous, it labels {what}, which the checks cannot count: {clearer}")
+                    continue
+                actual, where_from, why = _corpus_target(line, truth[module])
+                if why:
+                    problems.append(f"{where}: {why}")
+                elif value != actual:
+                    problems.append(f"{where}: quotes {value} but {module} ({where_from}) has {actual} (cases)")
     return problems
 
 
-def compute_truth(root, modules, python=None):
-    """Real counts per module. Tests come from `pytest --collect-only`, the rest from the files."""
+# ----------------------------------------------------------------------------- 2b. pasted pytest output
+PYTEST_COLLECTED_RE = re.compile(r"\bcollected (\d+) items?\b|\b(\d+) tests? collected\b")
+PYTEST_PASSED_RE = re.compile(r"\b\d+ passed\b")
+PYTEST_OUTCOME_RE = re.compile(r"\b(\d+) (passed|failed|skipped|deselected|xfailed|xpassed|errors?)\b")
+PYTEST_ROOTDIR_RE = re.compile(r"^rootdir:\s*(\S+)", re.M)
+SUITE_PATH_RE = re.compile(r"(?<![\w.-])([A-Za-z0-9][\w.-]*)/tests/")
+
+
+def suites_named_in_block(text, suites):
+    """The suites a pasted pytest block names: its `rootdir:` folder and any `<suite>/tests/` test path."""
+    found = set()
+    for m in PYTEST_ROOTDIR_RE.finditer(text):
+        last = re.split(r"[\\/]", m.group(1).rstrip("/\\"))[-1]
+        if last in suites:
+            found.add(last)
+    for m in SUITE_PATH_RE.finditer(text):
+        if m.group(1) in suites:
+            found.add(m.group(1))
+    return found
+
+
+def count_lines(fence):
+    """(index, line) for the lines of a fenced block that can carry a pytest count.
+
+    A test id line (`path::name[param] PASSED`) is skipped: a parametrized id can contain any text, for example
+    "61 passed", and that text is not a summary.
+    """
+    return [(k, l) for k, l in enumerate(fence["lines"]) if "::" not in l
+            and (PYTEST_COLLECTED_RE.search(l) or PYTEST_PASSED_RE.search(l))]
+
+
+def pasted_pytest_blocks(repo):
+    """Yield (path, fence) for every fenced block, in any .md file, that has a 'collected N items' or 'N passed' line."""
+    for path in repo.md_files():
+        _, fences = parse_fences(repo.text(path))
+        for fence in fences:
+            if count_lines(fence):
+                yield path, fence
+
+
+def check_pasted_pytest_output(repo, truth):
+    """Pasted pytest output must agree with what pytest really collects for the suite the block names.
+
+    In every fenced block, a 'collected N items' (or 'N tests collected') line must say N = the suite's collected
+    count, and a summary line with 'N passed' must add up to it: passed + failed + skipped + deselected + xfailed +
+    xpassed + errors. The suite is read from the block: its `rootdir:` folder, or the `<suite>/tests/` paths of its
+    test ids. A block that names no suite, or two, fails: there is nothing to compare against. Test id lines
+    (those with "::") are not read as counts.
+    """
+    problems = []
+    suites = set(truth)
+    for path, fence in pasted_pytest_blocks(repo):
+        where = f"{path}:{fence['start']}"
+        named = suites_named_in_block("\n".join(fence["lines"]), suites)
+        if not named:
+            problems.append(f"{where}: pasted pytest output names no suite (no 'rootdir:' line and no '<suite>/tests/' path), "
+                            f"so its counts cannot be checked; paste the 'rootdir:' line or the test ids with their paths")
+            continue
+        if len(named) > 1:
+            problems.append(f"{where}: pasted pytest output names more than one suite ({', '.join(sorted(named))}); "
+                            f"use one block per suite")
+            continue
+        suite = next(iter(named))
+        real = truth[suite]["tests"]
+        for k, line in count_lines(fence):
+            at = f"{path}:{fence['start'] + 1 + k}"
+            for m in PYTEST_COLLECTED_RE.finditer(line):
+                said = int(m.group(1) or m.group(2))
+                if said != real:
+                    problems.append(f"{at}: block for {suite} says collected {said} but pytest collects {real}")
+            if PYTEST_PASSED_RE.search(line):
+                said = sum(int(c) for c, _ in PYTEST_OUTCOME_RE.findall(line))
+                if said != real:
+                    problems.append(f"{at}: block for {suite} reports {said} results ('{line.strip(' =')}') but pytest collects {real}")
+    return problems
+
+
+def compute_truth(root, suites, python=None):
+    """Real counts per suite. Tests come from `pytest --collect-only`, the rest from the files.
+
+    "corpus" maps each *.jsonl file under the suite's tests/ (path relative to the suite folder) to its non-empty lines.
+    """
     root = Path(root)
     python = python or sys.executable
     truth = {}
-    for mod in modules:
+    for mod in suites:
         env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
         proc = subprocess.run([python, "-m", "pytest", f"{mod}/tests", "--collect-only", "-q", "-p", "no:cacheprovider"],
                               cwd=root, capture_output=True, text=True, env=env, timeout=600)
         found = re.findall(r"(\d+) tests? collected", proc.stdout + proc.stderr)
         if not found:
             raise RuntimeError(f"could not count tests for {mod}:\n{proc.stdout}\n{proc.stderr}")
-        cases = 0
-        for f in (root / mod / "tests").rglob("*.jsonl"):
-            cases += sum(1 for line in f.read_text(encoding="utf-8").splitlines() if line.strip())
+        corpus = {}
+        for f in sorted((root / mod / "tests").rglob("*.jsonl")):
+            corpus[f.relative_to(root / mod).as_posix()] = sum(1 for line in f.read_text(encoding="utf-8").splitlines() if line.strip())
         sigma = 0
         for f in list((root / mod / "detection_rules").rglob("*.yml")) + list((root / mod / "detection_rules").rglob("*.yaml")):
             doc = yaml.safe_load(f.read_text(encoding="utf-8"))
@@ -316,7 +480,7 @@ def compute_truth(root, modules, python=None):
         yara = 0
         for f in (root / mod / "detection_rules").rglob("*.yar"):
             yara += len(re.findall(r"^rule\s+\w+", f.read_text(encoding="utf-8"), re.M))
-        truth[mod] = {"tests": int(found[-1]), "cases": cases, "sigma": sigma, "yara": yara}
+        truth[mod] = {"tests": int(found[-1]), "cases": sum(corpus.values()), "sigma": sigma, "yara": yara, "corpus": corpus}
     return truth
 
 

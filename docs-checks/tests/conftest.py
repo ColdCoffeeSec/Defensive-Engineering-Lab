@@ -25,5 +25,5 @@ def repo(repo_root):
 
 @pytest.fixture(scope="session")
 def truth(repo_root, repo):
-    """Real test, case and rule counts per module, from pytest collection and the files."""
-    return compute_truth(repo_root, repo.modules())
+    """Real test, case and rule counts per suite (modules and docs-* folders), from pytest collection and the files."""
+    return compute_truth(repo_root, repo.suites())
