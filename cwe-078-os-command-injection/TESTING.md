@@ -84,7 +84,7 @@ pytest tests/
 
 ### Latest result
 
-Run on 2026-11-22 in the `python:3.12` container (Python 3.12.16, pytest 9.2.0), from the repository root. The 32 case tests and 29 coverage, integrity and sensitivity checks all pass (excerpt):
+Run on 2026-11-22 in the `python:3.12` container (Python 3.12.16, pytest 9.2.0), from the repository root. All 61 tests pass: 32 of them run one corpus case each (`test_case`), and the other 29 are coverage, integrity and sensitivity checks (excerpt):
 
 ```text
 cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-01] PASSED [ 16%]
