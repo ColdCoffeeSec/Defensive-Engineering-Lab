@@ -7,16 +7,31 @@
 #   * The vulnerable parameter is named "ping" (selection_ping_param_payload), or the
 #     endpoint path is /ping with any parameter name (selection_endpoint).
 #
-# KNOWN COVERAGE GAPS (by design of the data source, not of the rule):
+# KNOWN COVERAGE GAPS. Each is pinned as a case in tests/test_logs.jsonl and explained in ../TESTING.md.
+# Some are limits of the data source and some are the scope of this rule.
 #   * POST bodies are not written to IIS / Nginx / Apache access logs. If the endpoint
 #     accepts the target in a form or JSON body, this rule cannot see the payload.
 #     Cover that with WAF body inspection or application-level request logging.
+#     (A limit of the data source; access-log cases cannot test it.)
 #   * A raw, unencoded "&" is a parameter separator, not an injection, and is not
 #     alerted on. The same holds for a raw && : the server splits it into a separate
-#     parameter, so it cannot inject and is deliberately NOT alerted on (tests B-04, B-05).
+#     parameter, so it cannot inject and is deliberately NOT alerted on (cases B-04, B-05).
 #     The effective encoded forms (%26, %26%26) ARE detected.
-#   * Obfuscation that never uses the listed metacharacters (e.g. nested encodings beyond
-#     double encoding, Unicode look-alikes) is not covered.
+#   * ENDPOINT SCOPE: only paths ending in /ping or /ping/, plus a parameter named "ping".
+#     A real payload on another path with another parameter name is NOT detected: /diag
+#     (B-08) and /ping.php (B-15). If your endpoint is on such a path, change the scope
+#     lines (selection_endpoint, selection_ping_param_payload).
+#   * ENCODING AND NORMALIZATION beyond double encoding: a triple-encoded ';' (B-09) and the
+#     fullwidth semicolon U+FF1B, literal (B-10) or percent-encoded (B-11), are NOT detected.
+#     Each would be a real attack only if something decodes or normalizes the value to ';'
+#     before it reaches a shell. No case in the corpus does that.
+#   * PROBES THAT ARE NOT EVASIONS: %c0%af (overlong UTF-8 '/', B-12), a tab %09 (B-13) and a
+#     NUL byte %00 (B-14) are not shell command separators for this endpoint, so missing them
+#     is not a bypass. No pattern is added for them.
+#
+# KNOWN FALSE POSITIVE (B-16): a legitimate ';'-delimited multi-target ping alerts, because
+# ';' is a listed payload character. Removing ';' from the payload lists silences it, and
+# also silences real ';' injections (TP-01, TP-16 stop alerting). See ../TESTING.md.
 # -----------------------------------------------------------------------------
 title: OS Command Injection Attempt Against Ping Endpoint (Web Server Logs)
 id: 2bd67884-7866-4e1d-8b23-b383fa80e288
@@ -85,8 +100,9 @@ detection:
     # on any path (TUNE: replace "ping" with your real parameter name)
     selection_ping_param_payload:
         cs-uri-query|re: '(?:^|[?&])ping=[^&#]*?(?:;|\||\$\(|\$\{|`|%3[bB]|%7[cC]|%26|%24%28|%24%7[bB]|%60|%0[aAdD]|%25(?:3[bB]|7[cC]|26|24|60|0[aAdD]))'
-    # Authorized scanners / pentest sources. Replace the placeholder TEST-NET range with the
-    # real addresses from your change-management or pentest calendar.
+    # PLACEHOLDER: 192.0.2.0/24 is RFC 5737 TEST-NET-1. It stands in for your authorized scanner
+    # and pentest sources. Replace it with the real ranges from your change-management or pentest
+    # calendar. The tests (B-06, TP-16) use this range as the allow-listed one.
     filter_authorized_scanners:
         c-ip|cidr:
             - '192.0.2.0/24'

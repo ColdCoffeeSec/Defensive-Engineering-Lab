@@ -66,17 +66,45 @@ jobs:
       - name: Run detection tests
         run: python -m pytest "$MODULE/tests" -v
 
+  convert:
+    name: pySigma conversion (cwe-078, Splunk and Microsoft 365 Defender)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: cwe-078-os-command-injection/tests/requirements-conversion.txt
+
+      - name: Install pinned backends
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r cwe-078-os-command-injection/tests/requirements-conversion.txt
+
+      - name: Convert the rule (no pipeline; fails on any conversion error)
+        run: python cwe-078-os-command-injection/tools/convert_check.py
+
   all-tests-passed:
     name: All detection tests passed
-    needs: test
+    needs: [test, convert]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Require every module to pass
+      - name: Require every module and the conversion check to pass
         env:
           RESULT: ${{ needs.test.result }}
+          CONVERT_RESULT: ${{ needs.convert.result }}
         run: |
           if [ "$RESULT" != "success" ]; then
             echo "::error::Detection tests finished with result: $RESULT"
+            exit 1
+          fi
+          if [ "$CONVERT_RESULT" != "success" ]; then
+            echo "::error::Backend conversion finished with result: $CONVERT_RESULT"
             exit 1
           fi
