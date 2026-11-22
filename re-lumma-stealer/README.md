@@ -60,12 +60,13 @@ To run it in the official container instead, see the root [README](../README.md#
 | [`TESTING.md`](./TESTING.md) | Coverage matrices, mutation results, limits, and the real test output | Maintainer, reviewer |
 | [`iocs.csv`](./iocs.csv) | SHA-256 hashes from a CISA advisory plus two synthetic placeholder rows. No real hostnames or IP addresses. | Tier 2 analyst |
 | [`tools/config_extract.py`](./tools/config_extract.py) | Parser for a **synthetic** ChaCha20 config blob layout. It refuses anything without the test-only magic. | Reverse engineer, maintainer |
+| [`tools/convert_check.py`](./tools/convert_check.py) | pySigma conversion check for Splunk and Kusto, run by the `convert-re-lumma` CI job. Pins are in `tests/requirements-conversion.txt`. | Maintainer |
 | [`tests/`](./tests/) | Fixtures, benign-corpus generators and the pytest suite | Maintainer |
 | [`pytest.ini`](./pytest.ini) | pytest settings for this module | Maintainer |
 
 ## Deploy a rule
 
-The rules were tested with a small purpose-built evaluator (`tests/sigma_eval.py`) plus pySigma parsing. **No conversion to a real SIEM backend was tested** ([TESTING.md, section 2](./TESTING.md#2-what-the-tests-do-and-do-not-show)). Treat the conversion step as yours to verify.
+The rules were tested with a small purpose-built evaluator (`tests/sigma_eval.py`) plus pySigma parsing. CI also converts Sigma rules 001 to 003 with pySigma for Splunk and Microsoft 365 Defender (Kusto), but **the converted queries were never run on a SIEM**, Kusto gets no pipeline because none imports under the pinned pySigma, and rule 002 cannot fire without a 4663 SACL ([TESTING.md, section 7.1](./TESTING.md#71-backend-conversion-pysigma)). Treat the conversion step as yours to verify.
 
 1. **Check the rule file.** This validates the Sigma syntax. It does not convert anything.
 

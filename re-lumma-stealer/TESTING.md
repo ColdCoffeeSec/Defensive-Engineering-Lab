@@ -1,6 +1,6 @@
 # Testing: re-lumma-stealer
 
-**Last updated:** 2026-11-22. **Status:** the three Sigma rules, two YARA rules, config extractor and mutation tests (M1 to M7) were all run in the official `python:3.12` container on Python 3.12, the version CI uses. Result: 175 passed in 1.36s. The cwe-078 module suite and the documentation checks were run in the same container (section 9). **The baseline and real-data measurements have not been run (section 6) and no metric targets are set. The CI discovery pattern was extended on this branch to include `re-*` and `docs-*`, but the workflow has not been run on GitHub, so the CI result is unverified.**
+**Last updated:** 2026-11-22. **Status:** the three Sigma rules, two YARA rules, config extractor and mutation tests (M1 to M7) were all run in the official `python:3.12` container on Python 3.12, the version CI uses. Result: 175 passed in 1.36s. The cwe-078 module suite and the documentation checks were run in the same container (section 9). A pySigma conversion check for Splunk and Microsoft 365 Defender (Kusto) was added and run locally; **the converted queries were never run on a SIEM, and the `convert-re-lumma` CI job itself has not run on GitHub** (section 7.1). **The baseline and real-data measurements have not been run (section 6) and no metric targets are set. The CI discovery pattern was extended on this branch to include `re-*` and `docs-*`, but the workflow has not been run on GitHub, so the CI result is unverified.**
 
 Tags follow `CTI_CONTEXT.md`: **[V]** verified by a run shown below, **[A]** analyst-derived, **[U]** unverified, **[ASSUMED]** from `ENVIRONMENT_ASSUMPTIONS.md`.
 
@@ -16,6 +16,7 @@ Tags follow `CTI_CONTEXT.md`: **[V]** verified by a run shown below, **[A]** ana
 | 7. Mutation run | Every break turns its named cases red. | Done. M1 to M7 each turn exactly the expected cases red (section 5). |
 | 8. TESTING.md with baseline | Baseline recorded. | This file. **Baseline not run** (section 6). |
 | 9. CI change | Discovery pattern includes this module. Do not claim CI passed until it is green. | The `find` in the workflow now matches `./re-*/tests` and `./docs-*/tests`. The new discovery command was run locally and lists three folders. **The workflow itself has not run on GitHub; CI status is unverified.** |
+| Conversion | Rules 001 to 003 convert for Splunk and Kusto without error. | The converter script exits 0 in the container (sections 7.1 and 9.5). Splunk uses a pipeline for each rule; **Kusto uses none, because no Kusto pipeline imports under the pinned pySigma.** **Never run on a SIEM. The CI job has not run on GitHub.** |
 | Docs | Documentation checks run in the same matrix. | Done: the `docs-checks` suite passes in the container (section 9.4) and every check has a mutation proof. See [docs-checks](../docs-checks/README.md). |
 
 ## 1. Environment of the runs below
@@ -35,7 +36,7 @@ An earlier run on Windows with Python 3.14 covered only the Sigma, extractor and
 
 ## 2. What the tests do and do not show
 
-- Sigma rules are evaluated by `tests/sigma_eval.py`, a small Sigma subset that raises on any syntax it does not know. Each rule is also parsed by pySigma. **No pySigma backend conversion was tested**, because no SIEM or backend is assumed (`ENVIRONMENT_ASSUMPTIONS.md` section 1).
+- Sigma rules are evaluated by `tests/sigma_eval.py`, a small Sigma subset that raises on any syntax it does not know. Each rule is also parsed by pySigma. The pySigma conversion check (section 7.1) shows the rules convert for two backends without an error. **It does not run the converted queries**, because no SIEM is assumed (`ENVIRONMENT_ASSUMPTIONS.md` section 1), so neither the queries' validity nor their results are known.
 - Cases are synthetic Windows event XML in the shape Windows writes for Sysmon 1 and Security 4663. YARA fixtures are synthetic filler bytes with the rules' own strings dropped in. No real log or sample is used.
 - A pass shows the rule logic matches the labelled cases. **It is not a detection rate or a false-positive rate.**
 - The documentation is tested too: the `docs-checks` suite at the repository root checks links, quoted counts, pasted pytest output, tagged commands, the module table, rule-file fields, the safety rules and the intake template, and each check has a mutation test ([docs-checks](../docs-checks/README.md)). Its output is in section 9.4. It does not judge whether a claim is true.
@@ -203,6 +204,44 @@ python -m pytest re-lumma-stealer/tests -q
 ```
 
 Pin the image by digest (`python@sha256:5411fa1b302c43f510324381162b5f5d0d93b9ee2af538f09d944f0d290ee3cb`) if you need the same bytes again; the `python:3.12` tag moves. `re-lumma-stealer/tests/fixtures/build_cases.py` regenerates the JSONL case files, and a test checks that they are current.
+
+### 7.1 Backend conversion (pySigma)
+
+A CI job named `convert-re-lumma` (`.github/workflows/detection-test.yml`, part of the all-tests-passed gate) converts Sigma rules 001, 002 and 003 with pySigma for two backends. `tools/convert_check.py` does the work, with the same design as the cwe-078 job. It **fails on any conversion error**, on a rule file with errors, on a folder with no rules, and on a conversion that returns no query or an empty one. The pinned versions are in `tests/requirements-conversion.txt`, a separate file from `tests/requirements.txt` (same pins as the cwe-078 module; reasons below). YARA rules are not converted.
+
+**What was converted.** Run on 2026-11-22 in the `python:3.12` container (Python 3.12.16) with pySigma 2.1.1. Every cell is "1 query, no error".
+
+| Rule (log source) | `splunk` (`pySigma-backend-splunk` 3.0.1) | `microsoft365defender` (stub 0.3.2 of `pySigma-backend-kusto` 0.4.5, `KustoBackend`) |
+|---|---|---|
+| 001 (`process_creation`, Windows) | pipeline `splunk_windows`. **The output is identical to the output without a pipeline.** The rule has no `service` and no `EventID`, so the pipeline adds no source condition and its only field mapping (`EventID` to `EventCode`) is not used. | no pipeline |
+| 002 (Windows `security`) | pipeline `splunk_windows`. Adds `source="WinEventLog:Security"` and maps `EventID` to `EventCode`. | no pipeline |
+| 003 (`proxy`) | pipeline `splunk_cim`, the only Splunk pipeline the package ships with a proxy field mapping. Maps `cs-method` to `Web.http_method` and `c-useragent` to `Web.http_user_agent`. | no pipeline |
+
+A pipeline is applied only where the installed package ships one for that log source. Nothing was added by hand: no field name, table or index in any query comes from this repository. Not used on purpose: `splunk_cim` on rules 001 and 002 (001 already has `splunk_windows`; on 002 it fails with `SigmaTransformationError: Rule type not yet supported by the Splunk data model CIM pipeline!`, tried in a scratch run) and `splunk_sysmon_acceleration` (it only applies to a log source with `service: sysmon`, which no rule here declares).
+
+**What is missing for Microsoft 365 Defender (Kusto).** Exactly this:
+
+1. **No Kusto pipeline can be loaded under the pinned pySigma 2.1.1.** `pySigma-backend-kusto` 0.4.5 ships four pipeline modules (`microsoftxdr`, `microsoft365defender`, `azuremonitor`, `sentinelasim`). Each failed to import in the container with `ImportError: cannot import name 'SigmaTransformationError' from 'sigma.processing.transformations'` (section 9.5). The Splunk backend needs pySigma 2.x, so one environment cannot hold both. I did not find a working combination; one quick try with pySigma 0.11.23 failed with a `TypeError` in my own probe, which I did not diagnose, so I make no claim about that version.
+2. **Even if they imported, rules 002 and 003 would have no mapping.** From reading the packaged source of `microsoftxdr`, the pipeline behind the `microsoft365defender` target (**read, not run**): it maps the log source categories `process_creation` (to `DeviceProcessEvents`) and `network_connection` (to `DeviceNetworkEvents`) only. It has no mapping for Windows Security 4663 (rule 002) or for `proxy` (rule 003). Rule 001 would be covered. `sentinelasim` maps `proxy` to an `imWebSession` table, but that is a Microsoft Sentinel pipeline, not a Defender one, and it does not import either.
+3. **What a deployer must supply for Kusto:** the table for each rule and the mapping from the rule's field names to that table's columns. Whether Microsoft 365 Defender has any table for Security 4663 events or proxy logs is the deployer's decision. **No mapping is invented here.**
+
+So rules 001 to 003 all convert for Kusto, but **only as unmapped text**: the output has no table name and keeps the rule's own field names (`ParentImage`, `Image`, `CommandLine`, `EventID`, `ObjectName`, and `'cs-method'`, `'c-useragent'` quoted). It is not a query that is expected to run as it is.
+
+**What is not known.**
+
+- **The converted queries were never run on a SIEM.** Not Splunk, not Microsoft 365 Defender. Their validity, and whether they return the same events as the rule, is unknown. For example, the Splunk output for rule 001 wraps the `(?i)` regexes in `rex` named groups, and for rule 003 the `splunk_cim` output is a filter on CIM field names with no data-model wrapper. Neither was checked against Splunk.
+- **Rule 002 still cannot fire without a 4663 SACL on the browser profile paths.** A converted query changes nothing about that. The reference environment does not enable the SACL (`ENVIRONMENT_ASSUMPTIONS.md` section 1), so the Splunk and Kusto queries for rule 002 have nothing to match there.
+- **The `convert-re-lumma` job itself has not run on GitHub.** Only the script was run, in the container. The workflow edit is unverified until a run is green.
+- **The job fails when it should.** The same script, run in the container on a rule with an unknown modifier (`SigmaModifierError`) and on a folder with no rule files, exited 1 each time. On the real rules it exits 0. The cwe-078 conversion script also still exits 0 in the same container.
+- **Why a separate requirements file.** The same reason as in the cwe-078 module: `pySigma-backend-splunk` 3.0.1 requires `pysigma` 2.0.1 or newer and below 3, and the Kusto pipeline modules do not import under it, so pySigma's plugin discovery crashes with it installed. Keep `requirements-conversion.txt` in its own environment, not next to `sigma-cli` or the test dependencies.
+
+To reproduce:
+
+```bash
+# verified-locally: 2026-11-22, in the python:3.12 container, in a fresh virtual environment
+python -m pip install -r re-lumma-stealer/tests/requirements-conversion.txt
+python re-lumma-stealer/tools/convert_check.py
+```
 
 ## 8. Known limits
 
@@ -717,4 +756,35 @@ docs-checks/tests/test_docs_mutations.py::test_every_check_has_a_mutation PASSED
 docs-checks/tests/test_docs_mutations.py::test_mutations_never_write_to_the_snapshot PASSED [100%]
 
 ============================= 113 passed in 27.02s =============================
+```
+
+### 9.5 Backend conversion check, exit code 0
+
+Run in the `python:3.12` container, repository mounted read-only, in a fresh virtual environment that held only `tests/requirements-conversion.txt`. **Each line is cut to its first 200 characters for this file; the script prints 300.** Nothing else is edited.
+
+```text
+Python 3.12.16
+
+pysigma 2.1.1
+pysigma-backend-splunk 3.0.1
+pysigma-backend-kusto 0.4.5
+pysigma-backend-microsoft365defender 0.3.2
+
+== target splunk (sigma.backends.splunk.splunk.SplunkBackend)
+OK    re_lumma_001_clickfix_user_powershell.yml: 1 query, pipeline: splunk_windows (output identical to no pipeline) | ParentImage="*\\explorer.exe" | rex field=CommandLine "(?<CommandLineMatch>(?i)\\
+OK    re_lumma_002_browser_store_read_nonbrowser.yml: 1 query, pipeline: splunk_windows (output differs from no pipeline) | source="WinEventLog:Security" EventCode=4663 ObjectType="File" (ObjectName I
+OK    re_lumma_003_c2_useragent_eset.yml: 1 query, pipeline: splunk_cim (output differs from no pipeline) | Web.http_method="POST" (Web.http_user_agent IN ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) A
+
+== target microsoft365defender (sigma.backends.kusto.kusto.KustoBackend)
+  pipeline module sigma.pipelines.microsoftxdr: IMPORT FAILS (ImportError: cannot import name 'SigmaTransformationError' from 'sigma.processing.transformations' (/tmp/v/lib/python3.12/s)
+  pipeline module sigma.pipelines.microsoft365defender: IMPORT FAILS (ImportError: cannot import name 'SigmaTransformationError' from 'sigma.processing.transformations' (/tmp/v/lib/python3.12/s)
+  pipeline module sigma.pipelines.azuremonitor: IMPORT FAILS (ImportError: cannot import name 'SigmaTransformationError' from 'sigma.processing.transformations' (/tmp/v/lib/python3.12/s)
+  pipeline module sigma.pipelines.sentinelasim: IMPORT FAILS (ImportError: cannot import name 'SigmaTransformationError' from 'sigma.processing.transformations' (/tmp/v/lib/python3.12/s)
+OK    re_lumma_001_clickfix_user_powershell.yml: 1 query, pipeline: none | ParentImage endswith "\\explorer.exe" and (((Image endswith "\\powershell.exe" or Image endswith "\\pwsh.exe") and (CommandLi
+OK    re_lumma_002_browser_store_read_nonbrowser.yml: 1 query, pipeline: none | (EventID == 4663 and ObjectType =~ "File") and (ObjectName contains "\\User Data\\" or ObjectName contains "\\Mozilla\\F
+OK    re_lumma_003_c2_useragent_eset.yml: 1 query, pipeline: none | 'cs-method' =~ "POST" and ('c-useragent' in~ ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chro
+
+NOTE: the output was not run against a SIEM. Kusto output has no pipeline, so no table and no field mapping.
+RESULT: OK (0 conversion error(s))
+exit code: 0
 ```

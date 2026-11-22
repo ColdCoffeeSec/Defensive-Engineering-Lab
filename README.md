@@ -65,7 +65,7 @@ python -m pytest docs-checks/tests -q
 .
 ├── .github/
 │   ├── ISSUE_TEMPLATE/              # false-positive report, new-module request
-│   └── workflows/detection-test.yml # CI: discovers modules, runs pytest on Python 3.12, converts the cwe-078 rule for two backends
+│   └── workflows/detection-test.yml # CI: discovers modules, runs pytest on Python 3.12, converts the cwe-078 and re-lumma-stealer rules for two backends
 ├── cwe-078-os-command-injection/    # module
 ├── re-lumma-stealer/                # module
 ├── docs-checks/                     # tests that check the documentation, not a module
