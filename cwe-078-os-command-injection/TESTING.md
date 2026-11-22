@@ -2,7 +2,6 @@
 
 ![detection-test](https://github.com/ColdCoffeeSec/Defensive-Engineering-Lab/actions/workflows/detection-test.yml/badge.svg)
 
-> Replace `OWNER/REPO` in the badge URL with your repository path.
 
 **Rule under test:** `detection_rules/cmdi_sigma.yml` (id `2bd67884-7866-4e1d-8b23-b383fa80e288`, level high)
 **Corpus:** `tests/test_logs.jsonl`: 24 cases (16 true positives, 8 benign) in three real log formats
