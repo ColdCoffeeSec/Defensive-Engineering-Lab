@@ -1,6 +1,6 @@
 # Testing: OS Command Injection Sigma Rule
 
-![detection-test](https://github.com/OWNER/REPO/actions/workflows/detection-test.yml/badge.svg)
+![detection-test](https://github.com/ColdCoffeeSec/Defensive-Engineering-Lab/actions/workflows/detection-test.yml/badge.svg)
 
 > Replace `OWNER/REPO` in the badge URL with your repository path.
 
