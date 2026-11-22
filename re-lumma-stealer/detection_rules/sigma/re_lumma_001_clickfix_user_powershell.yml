@@ -41,7 +41,7 @@ references:
     - https://www.cisa.gov/news-events/cybersecurity-advisories/aa25-141b
     - https://www.microsoft.com/en-us/security/blog/2025/05/21/lumma-stealer-breaking-down-the-delivery-techniques-and-capabilities-of-a-prolific-infostealer/
     - https://attack.mitre.org/software/S1213/
-author: '[your name / team]'
+author: 'ColdCoffeeSec'
 date: 2026-11-22
 modified: 2026-11-22
 tags:
