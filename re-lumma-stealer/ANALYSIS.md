@@ -105,7 +105,7 @@ These are **not** done here. They are listed so the limits are visible.
 1. What is the real byte layout of the config structure for each version, and does it match section 3.3? **[U]**
 2. Which versions use the `WinHTTP.dll`-then-context pattern Elastic describes, and are the byte patterns for context setup stable enough for a YARA rule? **[U]** (Step 4 writes YARA from published descriptions only, not from analysis, and says so.)
 3. What User-Agent strings do current builds send? **[U]**
-4. Do the T-IDs in `CTI_CONTEXT.md` section 3 hold in v17? **[U]**
+4. Do the T-IDs in `CTI_CONTEXT.md` section 3 hold in v17? **Partly answered on 2026-11-22** (`CTI_CONTEXT.md` section 3.1): every ID in the section 3 table has a page in v17 with the same name as in v20.1 **[V: MITRE v17]**. Whether each technique describes Lumma behaviour is not checked and stays **[A]**.
 
 ## 6. Constraints that apply to every later step
 

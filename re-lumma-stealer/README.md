@@ -106,7 +106,7 @@ Quoted from [TESTING.md, section 8](./TESTING.md#8-known-limits):
 - Rule 002 misses injection into a browser process, path-suffix spoofing, and browsers whose profile is not under `User Data`, such as Opera.
 - Process hollowing, in-memory loading and C2 content need telemetry the reference environment does not assume.
 - The YARA rules use published strings only. The setup rule may miss the family it names, and it will match benign programs that use ChaCha20 and WinHTTP.
-- ATT&CK IDs are not checked against the v17 matrix.
+- ATT&CK IDs and names were checked against the versioned v17 pages on 2026-11-22: every ID used in a rule tag, fixture label or the playbook exists in v17. The check does not show that each technique describes Lumma behaviour, and one ID named only in `CTI_CONTEXT.md` (T1685) is not found in v17.
 
 Also: there is no baseline or real-data result, the IR playbook has not been reviewed, and nothing here proves a rule works against a real Lumma build.
 
