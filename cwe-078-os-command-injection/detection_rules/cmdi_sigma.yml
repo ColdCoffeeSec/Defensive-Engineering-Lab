@@ -1,0 +1,108 @@
+# -----------------------------------------------------------------------------
+# OS Command Injection (CWE-78) against a "ping" diagnostic endpoint
+# Companion docs: ../CTI_CONTEXT.md, ../IR_PLAYBOOK.md
+#
+# ASSUMPTIONS (verify against your endpoint, then tune the two marked lines):
+#   * The endpoint path ends in /ping and takes its input in the QUERY STRING (GET).
+#   * The vulnerable parameter is named "ping" (selection_ping_param_payload), or the
+#     endpoint path is /ping with any parameter name (selection_endpoint).
+#
+# KNOWN COVERAGE GAPS (by design of the data source, not of the rule):
+#   * POST bodies are not written to IIS / Nginx / Apache access logs. If the endpoint
+#     accepts the target in a form or JSON body, this rule cannot see the payload.
+#     Cover that with WAF body inspection or application-level request logging.
+#   * A raw, unencoded "&" is a parameter separator, not an injection, and is not
+#     alerted on. The same holds for a raw && : the server splits it into a separate
+#     parameter, so it cannot inject and is deliberately NOT alerted on (tests B-04, B-05).
+#     The effective encoded forms (%26, %26%26) ARE detected.
+#   * Obfuscation that never uses the listed metacharacters (e.g. nested encodings beyond
+#     double encoding, Unicode look-alikes) is not covered.
+# -----------------------------------------------------------------------------
+title: OS Command Injection Attempt Against Ping Endpoint (Web Server Logs)
+id: 2bd67884-7866-4e1d-8b23-b383fa80e288
+status: test
+description: |
+    Detects HTTP requests to a network-diagnostic "ping" endpoint whose query string carries
+    shell metacharacters or command-substitution syntax (; | $( ${ backtick, encoded & as %26, newline),
+    including URL-encoded and double-encoded forms. A legitimate request supplies only a
+    hostname or IP address, so these characters in that input indicate an attempt to
+    append or substitute an OS command (CWE-78). The rule fires on the ATTEMPT; it does
+    not prove the command executed. Use EDR process-creation telemetry to confirm
+    execution (see IR_PLAYBOOK.md).
+references:
+    - https://cwe.mitre.org/data/definitions/78.html
+    - https://attack.mitre.org/techniques/T1190/
+    - https://attack.mitre.org/techniques/T1059/
+    - https://owasp.org/www-community/attacks/Command_Injection
+author: '[your name / team]'
+date: 2026-11-22
+modified: 2026-11-22
+tags:
+    - attack.initial-access
+    - attack.t1190
+    - attack.execution
+    - attack.t1059
+    - attack.t1059.004
+    - attack.t1059.003
+logsource:
+    category: webserver
+detection:
+    # Scope A: the request targets the ping endpoint (TUNE: change if your path differs)
+    selection_endpoint:
+        cs-uri-stem|endswith:
+            - '/ping'
+            - '/ping/'
+    # Payload, raw form (as sent by curl / scanners / unencoded clients)
+    selection_payload_raw:
+        cs-uri-query|contains:
+            - ';'
+            - '|'
+            - '$('
+            - '${'
+            - '`'
+    # Payload, URL-encoded form (what browsers and most exploit kits send)
+    selection_payload_encoded:
+        cs-uri-query|contains:
+            - '%3b'        # ;
+            - '%7c'        # |
+            - '%26'        # &  (encoded & stays inside the value, so it is an effective separator)
+            - '%24%28'     # $(
+            - '%24%7b'     # ${
+            - '%60'        # backtick
+            - '%0a'        # newline
+            - '%0d'        # carriage return
+    # Payload, double-URL-encoded form (WAF / filter evasion attempts)
+    selection_payload_double_encoded:
+        cs-uri-query|contains:
+            - '%253b'
+            - '%257c'
+            - '%2526'
+            - '%2524'
+            - '%2560'
+            - '%250a'
+            - '%250d'
+    # Scope B: payload sits inside the VALUE of a parameter literally named "ping",
+    # on any path (TUNE: replace "ping" with your real parameter name)
+    selection_ping_param_payload:
+        cs-uri-query|re: '(?:^|[?&])ping=[^&#]*?(?:;|\||\$\(|\$\{|`|%3[bB]|%7[cC]|%26|%24%28|%24%7[bB]|%60|%0[aAdD]|%25(?:3[bB]|7[cC]|26|24|60|0[aAdD]))'
+    # Authorized scanners / pentest sources. Replace the placeholder TEST-NET range with the
+    # real addresses from your change-management or pentest calendar.
+    filter_authorized_scanners:
+        c-ip|cidr:
+            - '192.0.2.0/24'
+    condition: ((selection_endpoint and 1 of selection_payload_*) or selection_ping_param_payload) and not 1 of filter_*
+fields:
+    - c-ip
+    - cs-method
+    - cs-host
+    - cs-uri-stem
+    - cs-uri-query
+    - sc-status
+    - cs-user-agent
+falsepositives:
+    - Authorized vulnerability scanning, DAST or penetration testing (Burp, ZAP, Nessus, Qualys) against the endpoint; add the scanner source ranges to filter_authorized_scanners
+    - A legitimate multi-target ping feature that accepts a delimited list in the parameter (for example "a.example;b.example" or "a|b"); remove the matching delimiter from the payload lists if so
+    - Applications or legacy clients that use ";" as a query-string parameter delimiter on this endpoint
+    - Internal network-operations staff using the diagnostic page with ad-hoc input
+    - Red-team or purple-team exercises (confirm against the exercise calendar before closing)
+level: high
