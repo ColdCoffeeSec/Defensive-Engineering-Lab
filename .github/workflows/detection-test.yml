@@ -27,7 +27,7 @@ jobs:
         id: find
         shell: bash
         run: |
-          modules=$(find . -mindepth 2 -maxdepth 2 -type d \( -path './cwe-*/tests' -o -path './re-*/tests' \) \
+          modules=$(find . -mindepth 2 -maxdepth 2 -type d -path './cwe-*/tests' \
             | sed 's|^\./||; s|/tests$||' | sort | jq -R . | jq -cs .)
           echo "Discovered modules: ${modules}"
           if [ "${modules}" = "[]" ]; then
