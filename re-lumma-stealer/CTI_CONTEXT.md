@@ -4,7 +4,7 @@
 |---|---|
 | **Classification** | TLP:CLEAR (portfolio / lab material) |
 | **Date** | 2026-11-22 |
-| **Author** | [name / team] |
+| **Author** | ColdCoffeeSec |
 | **Family** | Lumma Stealer / LummaC2, MITRE ATT&CK software S1213 |
 | **ATT&CK version pinned** | v17 `[ASSUMED]` (`ENVIRONMENT_ASSUMPTIONS.md` section 5), the version AA25-141B uses |
 | **Linked artifacts** | `ANALYSIS.md`, `IR_PLAYBOOK.md` (step 5), `detection_rules/` (steps 3-4), `ENVIRONMENT_ASSUMPTIONS.md` |
