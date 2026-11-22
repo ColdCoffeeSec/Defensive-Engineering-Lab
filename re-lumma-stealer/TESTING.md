@@ -8,7 +8,7 @@ Tags follow `CTI_CONTEXT.md`: **[V]** verified by a run shown below, **[A]** ana
 
 | Step | Pass condition | Status |
 |---|---|---|
-| 2. CTI_CONTEXT.md, ANALYSIS.md | Every claim tagged V or U. Hash only for samples. | Written. Claims re-checked on 2026-11-22 against raw downloaded pages. No pytest applies. |
+| 2. CTI_CONTEXT.md, ANALYSIS.md | Every claim tagged V or U. Hash only for samples. | Written. Claims re-checked on 2026-11-22 against raw downloaded pages. ATT&CK IDs and names also checked against the versioned v17 pages on 2026-11-22 (section 8.1). No pytest applies. |
 | 3. Sigma rules | Each rule has `falsepositives` and a source-limits note. | Done. Rules 001, 002 and 003 pass their cases (section 9). **Rule 003 is written, low confidence.** It replaces the earlier "not written" decision. Decision made 2026-11-22 by the repo owner (section 4.2). |
 | 4. YARA rules | Rules compile and match their fixtures. | Done for what was claimed: both rules compile with **no warnings** under `error_on_warning=True` and match their synthetic fixtures. The patterns are published strings, low confidence **[A]**, never run on a real sample. |
 | 5. IR_PLAYBOOK.md, iocs.csv | All indicators defanged. | Done. Playbook is **unreviewed**. 9 hashes matched exactly against the CISA page. |
@@ -212,12 +212,20 @@ Pin the image by digest (`python@sha256:5411fa1b302c43f510324381162b5f5d0d93b9ee
 - Process hollowing, in-memory loading and C2 content need telemetry the reference environment does not assume.
 - YARA rules use published strings only. Elastic reports parts of the ChaCha20 constant are decrypted at runtime and XOR-ROL derived **[V]**, so the setup rule may miss the family it names, and it will match benign programs that use ChaCha20 and WinHTTP.
 - The `pe` module is not used, so no condition is untestable on synthetic filler.
-- ATT&CK IDs are confirmed as listed on the MITRE S1213 page (footer v20.1) and, for some, in AA25-141B (v17), but are not checked against the v17 matrix (`CTI_CONTEXT.md` section 3).
+- ATT&CK IDs and names were checked against the versioned v17 pages on 2026-11-22: every ID used in a rule tag, fixture label or the playbook exists in v17. The check does not show that each technique describes Lumma behaviour, and one ID named only in `CTI_CONTEXT.md` (T1685) is not found in v17 (section 8.1).
 - Source claims in the docs were re-verified on 2026-11-22 against raw downloaded pages by exact string match. `iocs.csv` hashes were matched exactly, case included.
+
+### 8.1 ATT&CK ID crosswalk check
+
+**What was checked, and when.** On 2026-11-22, every ATT&CK technique and sub-technique ID that appears in `re-lumma-stealer` (16 IDs: in `CTI_CONTEXT.md`, the case tables here, `IR_PLAYBOOK.md`, the three Sigma rule tags and the fixture labels) was fetched from its versioned ATT&CK v17 page and from the current page (footer "ATT&CK content v20.1"), with `curl`, into a scratch directory outside the repo. Software page S1213 was fetched in both versions. For each page the check recorded the HTTP status, the name printed in the title, whether `ID: <ID>` and that name occur in the visible text, the footer version, and whether the text contains `revok` or `deprecat`. The method, the full table and the result are in `CTI_CONTEXT.md` section 3.1.
+
+**Result.** 15 of the 16 IDs exist in v17 (footer v17.1) with the same name as in the current version. None is marked revoked or deprecated in either. **T1685 is not found in v17** (HTTP 404 on its versioned URL); it is named only in the version caveat of `CTI_CONTEXT.md` section 3, in no rule tag, fixture label, test table or playbook. Nothing was changed in any rule, test, fixture or `iocs.csv`, so no rule or fixture needs a fix because of this check.
+
+**What this check does not show.** **The crosswalk checks IDs and names only. It does not check whether each technique really describes Lumma behaviour.** The mapping of Lumma behaviour to techniques is the analyst's own reading **[A]**. It also does not check whether AA25-141B lists each ID, and the downloaded pages are not committed, so a reader has to fetch them again to repeat it. The absence of T1685 from v17 is tagged **[U]**, because a 404 on one URL is not an exact-string find.
 
 ## 9. Real test output
 
-All output below was produced on 2026-11-22 by the script that wrote this file, in the `python:3.12` container, with the repository mounted read-only at `/repo` and each suite started from `/repo` as CI starts it. Nothing is edited.
+All output below was produced on 2026-11-22 by the script that wrote this file, in the `python:3.12` container, with the repository mounted read-only at `/repo` and each suite started from `/repo` as CI starts it. Nothing is edited. **One exception to "the script that wrote this file":** block 9.3 was replaced by a re-run made later on 2026-11-22, in the same container and with the same mount, on the branch that added the ATT&CK crosswalk (section 8.1). The earlier 9.3 block was stale, because the cwe-078 suite had grown since it was pasted; the new block's header and summary lines show the current size. That re-run also ran this module's suite and the documentation checks. Both passed with the same totals as 9.1 and 9.4, so those two blocks are left as first pasted.
 
 ### 9.1 re-lumma-stealer suite, exit code 0
 
@@ -480,47 +488,68 @@ M5 mutated condition lines:
 platform linux -- Python 3.12.16, pytest-9.2.0, pluggy-1.7.0 -- /usr/local/bin/python
 rootdir: /repo/cwe-078-os-command-injection
 configfile: pytest.ini
-collecting ... collected 40 items
+collecting ... collected 61 items
 
-cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-01] PASSED [  2%]
-cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-02] PASSED [  5%]
-cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-03] PASSED [  7%]
-cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-04] PASSED [ 10%]
-cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-05] PASSED [ 12%]
-cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-06] PASSED [ 15%]
-cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-07] PASSED [ 17%]
-cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-08] PASSED [ 20%]
-cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-09] PASSED [ 22%]
-cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-10] PASSED [ 25%]
-cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-11] PASSED [ 27%]
-cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-12] PASSED [ 30%]
-cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-13] PASSED [ 32%]
-cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-14] PASSED [ 35%]
-cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-15] PASSED [ 37%]
+cwe-078-os-command-injection/tests/test_gap_cases.py::test_adding_the_missing_pattern_flips_only_that_gap_case[B-09] PASSED [  1%]
+cwe-078-os-command-injection/tests/test_gap_cases.py::test_adding_the_missing_pattern_flips_only_that_gap_case[B-10] PASSED [  3%]
+cwe-078-os-command-injection/tests/test_gap_cases.py::test_adding_the_missing_pattern_flips_only_that_gap_case[B-11] PASSED [  4%]
+cwe-078-os-command-injection/tests/test_gap_cases.py::test_adding_the_missing_pattern_flips_only_that_gap_case[B-12] PASSED [  6%]
+cwe-078-os-command-injection/tests/test_gap_cases.py::test_adding_the_missing_pattern_flips_only_that_gap_case[B-13] PASSED [  8%]
+cwe-078-os-command-injection/tests/test_gap_cases.py::test_adding_the_missing_pattern_flips_only_that_gap_case[B-14] PASSED [  9%]
+cwe-078-os-command-injection/tests/test_gap_cases.py::test_adding_the_missing_pattern_flips_only_that_gap_case[B-15] PASSED [ 11%]
+cwe-078-os-command-injection/tests/test_gap_cases.py::test_every_documented_gap_case_has_a_sensitivity_test_or_is_the_older_scope_gap PASSED [ 13%]
+cwe-078-os-command-injection/tests/test_gap_cases.py::test_tuning_away_the_known_false_positive_also_silences_real_semicolon_injections PASSED [ 14%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-01] PASSED [ 16%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-02] PASSED [ 18%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-03] PASSED [ 19%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-04] PASSED [ 21%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-05] PASSED [ 22%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-06] PASSED [ 24%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-07] PASSED [ 26%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-08] PASSED [ 27%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-09] PASSED [ 29%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-10] PASSED [ 31%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-11] PASSED [ 32%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-12] PASSED [ 34%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-13] PASSED [ 36%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-14] PASSED [ 37%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-15] PASSED [ 39%]
 cwe-078-os-command-injection/tests/test_rule.py::test_case[TP-16] PASSED [ 40%]
 cwe-078-os-command-injection/tests/test_rule.py::test_case[B-01] PASSED  [ 42%]
-cwe-078-os-command-injection/tests/test_rule.py::test_case[B-02] PASSED  [ 45%]
-cwe-078-os-command-injection/tests/test_rule.py::test_case[B-03] PASSED  [ 47%]
-cwe-078-os-command-injection/tests/test_rule.py::test_case[B-04] PASSED  [ 50%]
-cwe-078-os-command-injection/tests/test_rule.py::test_case[B-05] PASSED  [ 52%]
-cwe-078-os-command-injection/tests/test_rule.py::test_case[B-06] PASSED  [ 55%]
-cwe-078-os-command-injection/tests/test_rule.py::test_case[B-07] PASSED  [ 57%]
-cwe-078-os-command-injection/tests/test_rule.py::test_case[B-08] PASSED  [ 60%]
-cwe-078-os-command-injection/tests/test_rule.py::test_corpus_has_24_unique_cases PASSED [ 62%]
-cwe-078-os-command-injection/tests/test_rule.py::test_all_three_log_formats_are_exercised PASSED [ 65%]
-cwe-078-os-command-injection/tests/test_rule.py::test_required_category_is_covered[authorized_scanner-1] PASSED [ 67%]
-cwe-078-os-command-injection/tests/test_rule.py::test_required_category_is_covered[documented_gap-1] PASSED [ 70%]
-cwe-078-os-command-injection/tests/test_rule.py::test_required_category_is_covered[double_url_encoded-2] PASSED [ 72%]
-cwe-078-os-command-injection/tests/test_rule.py::test_required_category_is_covered[evasion-2] PASSED [ 75%]
-cwe-078-os-command-injection/tests/test_rule.py::test_required_category_is_covered[legitimate_traffic-3] PASSED [ 77%]
-cwe-078-os-command-injection/tests/test_rule.py::test_required_category_is_covered[param_scope-2] PASSED [ 80%]
-cwe-078-os-command-injection/tests/test_rule.py::test_required_category_is_covered[raw_ampersand_split-2] PASSED [ 82%]
-cwe-078-os-command-injection/tests/test_rule.py::test_required_category_is_covered[raw_payload-4] PASSED [ 85%]
-cwe-078-os-command-injection/tests/test_rule.py::test_required_category_is_covered[scanner_filter_scope-1] PASSED [ 87%]
-cwe-078-os-command-injection/tests/test_rule.py::test_required_category_is_covered[single_url_encoded-4] PASSED [ 90%]
-cwe-078-os-command-injection/tests/test_rule.py::test_required_category_is_covered[unrelated_endpoint-1] PASSED [ 92%]
-cwe-078-os-command-injection/tests/test_rule.py::test_rule_metadata_is_production_shaped PASSED [ 95%]
-cwe-078-os-command-injection/tests/test_rule.py::test_testing_md_lists_every_case_and_the_rule_id PASSED [ 97%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[B-02] PASSED  [ 44%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[B-03] PASSED  [ 45%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[B-04] PASSED  [ 47%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[B-05] PASSED  [ 49%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[B-06] PASSED  [ 50%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[B-07] PASSED  [ 52%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[B-08] PASSED  [ 54%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[B-09] PASSED  [ 55%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[B-10] PASSED  [ 57%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[B-11] PASSED  [ 59%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[B-12] PASSED  [ 60%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[B-13] PASSED  [ 62%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[B-14] PASSED  [ 63%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[B-15] PASSED  [ 65%]
+cwe-078-os-command-injection/tests/test_rule.py::test_case[B-16] PASSED  [ 67%]
+cwe-078-os-command-injection/tests/test_rule.py::test_corpus_has_the_expected_number_of_unique_cases PASSED [ 68%]
+cwe-078-os-command-injection/tests/test_rule.py::test_documented_gap_cases_are_not_alerts_and_say_what_they_are PASSED [ 70%]
+cwe-078-os-command-injection/tests/test_rule.py::test_known_false_positive_cases_alert_and_say_how_to_tune PASSED [ 72%]
+cwe-078-os-command-injection/tests/test_rule.py::test_rule_header_points_to_every_gap_and_false_positive_case_and_labels_the_placeholder PASSED [ 73%]
+cwe-078-os-command-injection/tests/test_rule.py::test_all_three_log_formats_are_exercised PASSED [ 75%]
+cwe-078-os-command-injection/tests/test_rule.py::test_required_category_is_covered[authorized_scanner-1] PASSED [ 77%]
+cwe-078-os-command-injection/tests/test_rule.py::test_required_category_is_covered[documented_gap-8] PASSED [ 78%]
+cwe-078-os-command-injection/tests/test_rule.py::test_required_category_is_covered[double_url_encoded-2] PASSED [ 80%]
+cwe-078-os-command-injection/tests/test_rule.py::test_required_category_is_covered[evasion-2] PASSED [ 81%]
+cwe-078-os-command-injection/tests/test_rule.py::test_required_category_is_covered[known_fp_needs_tuning-1] PASSED [ 83%]
+cwe-078-os-command-injection/tests/test_rule.py::test_required_category_is_covered[legitimate_traffic-3] PASSED [ 85%]
+cwe-078-os-command-injection/tests/test_rule.py::test_required_category_is_covered[param_scope-2] PASSED [ 86%]
+cwe-078-os-command-injection/tests/test_rule.py::test_required_category_is_covered[raw_ampersand_split-2] PASSED [ 88%]
+cwe-078-os-command-injection/tests/test_rule.py::test_required_category_is_covered[raw_payload-4] PASSED [ 90%]
+cwe-078-os-command-injection/tests/test_rule.py::test_required_category_is_covered[scanner_filter_scope-1] PASSED [ 91%]
+cwe-078-os-command-injection/tests/test_rule.py::test_required_category_is_covered[single_url_encoded-4] PASSED [ 93%]
+cwe-078-os-command-injection/tests/test_rule.py::test_required_category_is_covered[unrelated_endpoint-1] PASSED [ 95%]
+cwe-078-os-command-injection/tests/test_rule.py::test_rule_metadata_is_production_shaped PASSED [ 96%]
+cwe-078-os-command-injection/tests/test_rule.py::test_testing_md_lists_every_case_and_the_rule_id PASSED [ 98%]
 cwe-078-os-command-injection/tests/test_rule.py::test_evaluator_fails_loudly_on_unsupported_syntax PASSED [100%]
 ==================== Detection test matrix: cmdi_sigma.yml =====================
 
@@ -533,6 +562,14 @@ B-05   PASS    no alert  apache_vhost_combined  raw_ampersand_split    raw_doubl
 B-06   PASS    no alert  nginx_combined         authorized_scanner     authorized_scanner_range
 B-07   PASS    no alert  iis_w3c                unrelated_endpoint     path_ends_in_ping_not_endpoint
 B-08   PASS    no alert  apache_vhost_combined  documented_gap         other_path_other_param_name
+B-09   PASS    no alert  nginx_combined         documented_gap         triple_encoded_semicolon
+B-10   PASS    no alert  apache_vhost_combined  documented_gap         fullwidth_semicolon_literal
+B-11   PASS    no alert  iis_w3c                documented_gap         fullwidth_semicolon_percent_encoded
+B-12   PASS    no alert  nginx_combined         documented_gap         overlong_utf8_slash
+B-13   PASS    no alert  apache_vhost_combined  documented_gap         tab_whitespace
+B-14   PASS    no alert  iis_w3c                documented_gap         null_byte
+B-15   PASS    no alert  nginx_combined         documented_gap         other_path_ping_php
+B-16   PASS    alert     apache_vhost_combined  known_fp_needs_tuning  legit_multi_target_semicolon_list
 TP-01  PASS    alert     nginx_combined         raw_payload            raw_semicolon
 TP-02  PASS    alert     apache_vhost_combined  raw_payload            raw_pipe
 TP-03  PASS    alert     nginx_combined         raw_payload            raw_command_substitution
@@ -550,8 +587,8 @@ TP-14  PASS    alert     nginx_combined         param_scope            ping_para
 TP-15  PASS    alert     iis_w3c                param_scope            ping_param_not_first_encoded
 TP-16  PASS    alert     nginx_combined         scanner_filter_scope   non_allowlisted_source_same_payload_as_B06
 
-24/24 cases PASS
-============================== 40 passed in 0.20s ==============================
+32/32 cases PASS
+============================== 61 passed in 0.41s ==============================
 ```
 
 ### 9.4 docs-checks suite, exit code 0
