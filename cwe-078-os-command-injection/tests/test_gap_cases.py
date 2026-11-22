@@ -51,3 +51,13 @@ def test_every_documented_gap_case_has_a_sensitivity_test_or_is_the_older_scope_
     covered = {g[0] for g in GAP_CLOSERS}
     gaps = {c["id"] for c in CASES if c["category"] == "documented_gap"}
     assert gaps - covered == {"B-08"}, "B-08 (other path, other parameter name) is the original scope gap"
+
+
+def test_tuning_away_the_known_false_positive_also_silences_real_semicolon_injections():
+    """B-16 is the known false positive. Removing ';' from the raw list (the documented tuning) silences it, and the
+    test shows the cost: TP-01 and TP-16, which are real ';' injections, stop alerting too. Nothing else changes."""
+    mutated = copy.deepcopy(RULE)
+    mutated["detection"]["selection_payload_raw"]["cs-uri-query|contains"].remove(";")
+    assert BASELINE["B-16"] is True, "the known false positive must alert on the rule as it is"
+    assert flipped(mutated) == {"B-16", "TP-01", "TP-16"}
+    assert verdicts(mutated)["B-16"] is False

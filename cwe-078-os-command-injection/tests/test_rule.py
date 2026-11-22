@@ -217,8 +217,9 @@ REQUIRED_CATEGORIES = {          # category -> minimum number of cases
     "authorized_scanner": 1,
     "unrelated_endpoint": 1,
     "documented_gap": 8,
+    "known_fp_needs_tuning": 1,
 }
-EXPECTED_CASES = 31              # update together with TESTING.md and the READMEs when a case is added
+EXPECTED_CASES = 32              # update together with TESTING.md and the READMEs when a case is added
 GAP_DESCRIPTION_PREFIXES = ("DOCUMENTED GAP", "PROBE, NOT AN EVASION")
 REQUIRED_FORMATS = {"nginx_combined", "apache_vhost_combined", "iis_w3c"}
 
@@ -251,7 +252,9 @@ def test_corpus_has_the_expected_number_of_unique_cases():
     for c in CASES:
         assert required <= c.keys(), f"{c.get('id')} is missing {required - c.keys()}"
         assert c["group"] in ("true_positive", "benign")
-        assert (c["group"] == "true_positive") == c["expected_detected"] or c["category"] == "documented_gap"
+        # A true positive alerts and benign traffic does not, except two documented categories: a gap is a real
+        # payload that is not alerted, and a known false positive is benign traffic that is alerted (see the tests below).
+        assert (c["group"] == "true_positive") == c["expected_detected"] or c["category"] in ("documented_gap", "known_fp_needs_tuning")
 
 
 def test_documented_gap_cases_are_not_alerts_and_say_what_they_are():
@@ -266,6 +269,16 @@ def test_documented_gap_cases_are_not_alerts_and_say_what_they_are():
         else:
             assert ("would be a real attack only if" in c["description"] or "IS a real attack" in c["description"]
                     or "real payload" in c["description"]), f"{c['id']} must say when the gap becomes a real attack"
+
+
+def test_known_false_positive_cases_alert_and_say_how_to_tune():
+    """A known false positive is benign traffic the rule alerts on, pinned so the tuning advice stays visible."""
+    fps = [c for c in CASES if c["category"] == "known_fp_needs_tuning"]
+    assert fps
+    for c in fps:
+        assert c["group"] == "benign" and c["expected_detected"] is True, c["id"]
+        assert c["description"].startswith("KNOWN FALSE POSITIVE"), c["id"]
+        assert "removes" in c["description"] and "cost" in c["description"], f"{c['id']} must say how to tune and what it costs"
 
 
 def test_all_three_log_formats_are_exercised():
